@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Natural Edge Smoke LR · Advanced Controls</title>
+  <style>
+    :root {
+      --panel-bg: rgba(18, 22, 30, 0.78);
+      --panel-border: rgba(255,255,255,0.08);
+      --text-dim: rgba(235,240,250,0.72);
+    }
+    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#0a0d12; color:#e9edf5; font-family: Inter, system-ui, Arial, sans-serif; }
+    .stage { position:fixed; inset:0; display:grid; place-items:center; padding:24px; box-sizing:border-box; }
+    #gl { width:min(1024px, calc(100vw - 48px)); aspect-ratio:1024 / 600; display:block; border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,0.45); background:#0a0d12; }
+    .ui { position:fixed; top:20px; left:20px; width:392px; max-height:calc(100vh - 40px); overflow:auto; padding:16px 18px; border-radius:18px; background:var(--panel-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--panel-border); box-shadow:0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05); }
+    .fps { position:fixed; top:20px; right:20px; min-width:205px; padding:10px 12px; border-radius:14px; background:var(--panel-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--panel-border); box-shadow:0 10px 40px rgba(0,0,0,0.35); font-size:12px; line-height:1.5; }
+    h1 { font-size:16px; margin:0 0 10px; font-weight:600; letter-spacing:0.2px; }
+    .meta { margin:0 0 14px; font-size:12px; line-height:1.45; color:var(--text-dim); }
+    .section { margin:14px 0 8px; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:rgba(235,240,250,0.62); }
+    .control { margin-bottom:14px; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; color:#cfd6e6; }
+    .label { display:flex; align-items:center; gap:6px; min-width:0; }
+    .label-text { white-space:nowrap; }
+    .value { color:#ffffff; font-variant-numeric:tabular-nums; opacity:0.95; white-space:nowrap; }
+    input[type="range"] { width:100%; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.14); outline:none; }
+    input[type="range"]::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:#ffffff; box-shadow:0 2px 10px rgba(0,0,0,0.25); cursor:pointer; border:none; }
+    input[type="range"]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#ffffff; cursor:pointer; border:none; }
+    .info { position:relative; width:16px; height:16px; border-radius:50%; display:inline-grid; place-items:center; font-size:11px; font-weight:700; color:white; background:rgba(255,255,255,0.12); cursor:help; flex:0 0 16px; }
+    .info:hover::after { content:attr(data-tip); position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%); width:220px; padding:9px 10px; border-radius:10px; background:rgba(10,12,18,0.96); color:#eef2fa; border:1px solid rgba(255,255,255,0.10); box-shadow:0 10px 28px rgba(0,0,0,0.35); font-size:11px; line-height:1.42; white-space:normal; z-index:50; pointer-events:none; }
+    .subhint { margin-top:-6px; margin-bottom:10px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.62); }
+    .actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+    button { appearance:none; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:white; padding:10px 12px; font:inherit; cursor:pointer; }
+    button:hover { background:rgba(255,255,255,0.16); }
+    .hint { margin-top:10px; font-size:12px; line-height:1.45; color:var(--text-dim); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; }
+  </style>
+</head>
+<body>
+  <div class="stage"><canvas id="gl"></canvas></div>
+  <div class="ui">
+    <h1>Natural Edge Smoke · Advanced Controls</h1>
+    <div class="meta">Links/rechts-Aufbau bleibt. Die helle Kante ist lokal statt permanent, der Körper transparenter und die Außenränder fransen weicher aus. Der Spread-Bereich ist jetzt deutlich breiter und Curl/Edge lassen sich feiner zerlegen.</div>
+    <div class="section">Look</div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Smoke Density</span><span class="info" data-tip="Mehr Rauch bedeutet hier: zusätzliche Fahnen, mehr Sekundärvolumen und breitere Körper. Leistung: mittel.">i</span></div><span class="value" id="densityValue">1.00</span></div><input id="density" type="range" min="0.30" max="1.80" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Flow Speed</span><span class="info" data-tip="Beim Ziehen ändert sich nur der Pending-Wert. Erst beim Loslassen wird die neue Geschwindigkeit übernommen und weich angefahren. Leistung: praktisch kostenlos.">i</span></div><span class="value" id="speedValue">1.00</span></div><input id="speed" type="range" min="0.10" max="2.40" step="0.01" value="1.00" /><div class="subhint" id="speedHint">pending 1.00 · applied 1.00</div></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Swirl / Curl</span><span class="info" data-tip="Grundstärke der lokalen Wirbel. Höher = mehr Formveränderung entlang der Fahnen. Leistung: mittel.">i</span></div><span class="value" id="curlValue">1.00</span></div><input id="curl" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Curl Size</span><span class="info" data-tip="Größe/Radius der Wirbel. Klein = nervöser, groß = weichere größere Bögen. Leistung: niedrig bis mittel.">i</span></div><span class="value" id="curlSizeValue">1.00</span></div><input id="curlSize" type="range" min="0.50" max="1.80" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Curl Count</span><span class="info" data-tip="Wie viele zusätzliche Wirbelstationen entlang einer Fahne aktiv sind. Höher = abwechslungsreicher, aber teurer. Leistung: mittel bis hoch.">i</span></div><span class="value" id="curlCountValue">2</span></div><input id="curlCount" type="range" min="0" max="3" step="1" value="2" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Dynamic Curls</span><span class="info" data-tip="Zeitliche Lebendigkeit der Wirbelpositionen. Höher = organischer, aber auch unruhiger. Leistung: mittel.">i</span></div><span class="value" id="curlDynamicsValue">1.00</span></div><input id="curlDynamics" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Turbulence</span><span class="info" data-tip="Feinere Unruhe in den Konturen. Höher = natürlicher bis chaotischer. Leistung: mittel.">i</span></div><span class="value" id="turbulenceValue">1.00</span></div><input id="turbulence" type="range" min="0.00" max="1.80" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Spread</span><span class="info" data-tip="Jetzt mit breiterem Bereich. Öffnet die Fahnen weiter im Raum. Höher = luftiger und weiter verteilt, aber kann schneller flächig wirken. Leistung: niedrig.">i</span></div><span class="value" id="spreadValue">1.00</span></div><input id="spread" type="range" min="0.35" max="2.20" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Softness</span><span class="info" data-tip="Macht den Rauchkörper milchiger und die Übergänge breiter. Leistung: niedrig.">i</span></div><span class="value" id="softnessValue">1.00</span></div><input id="softness" type="range" min="0.60" max="1.60" step="0.01" value="1.00" /></div>
+
+    <div class="section">Edges</div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Edge Definition</span><span class="info" data-tip="Gesamte Kantenwirkung. Zu hoch wird wieder schlauchartig. Leistung: niedrig.">i</span></div><span class="value" id="edgeValue">1.00</span></div><input id="edge" type="range" min="0.20" max="2.00" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Upper Edge</span><span class="info" data-tip="Betont stärker die obere Rauchhaut einer Fahne. Gut für asymmetrischeres Licht. Leistung: niedrig.">i</span></div><span class="value" id="edgeUpperValue">1.00</span></div><input id="edgeUpper" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Lower Edge</span><span class="info" data-tip="Betont stärker die untere Rauchhaut einer Fahne. So lassen sich obere und untere Kanten unterschiedlich einstellen. Leistung: niedrig.">i</span></div><span class="value" id="edgeLowerValue">1.00</span></div><input id="edgeLower" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+
+    <div class="section">Color & Performance</div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Red Smoke</span><span class="info" data-tip="Kein Filter. Die eigentliche Rauchpalette wird von neutral auf rote Körper- und Kantenfarben umgebaut. Leistung: niedrig.">i</span></div><span class="value" id="rednessValue">0.00</span></div><input id="redness" type="range" min="0.00" max="1.00" step="0.01" value="0.00" /></div>
+
+    <div class="control"><div class="row"><div class="label"><span class="label-text">Render Scale</span><span class="info" data-tip="Stärkster FPS-Hebel. 0.50 entspricht ca. 512×300 bei einem 1024×600-Target. Leistung: sehr hoch.">i</span></div><span class="value" id="renderScaleValue">0.50</span></div><input id="renderScale" type="range" min="0.30" max="0.80" step="0.01" value="0.50" /></div>
+
+    <div class="actions"><button id="copyFrag">Copy .frag</button><button id="downloadFrag">Download .frag</button></div>
+    <div class="hint">Die exportierte <code>.frag</code> erwartet <code>uTime</code> als bereits im Host integrierte Zeit. Die weiche Speed-Übernahme bleibt deshalb Host-Logik und nicht Shader-Logik.</div>
+  </div>
+
+  <div class="fps">
+    <div><strong>FPS</strong></div>
+    <div>Instant: <span id="fpsInstant">0.0</span></div>
+    <div>Avg: <span id="fpsAvg">0.0</span></div>
+    <div>Internal: <span id="fpsRes">512×300</span></div>
+    <div>Applied speed: <span id="fpsSpeed">1.00</span></div>
+  </div>
+
+  <script>
+    const BASE_W = 1024;
+    const BASE_H = 600;
+    const canvas = document.getElementById("gl");
+    const gl = canvas.getContext("webgl", { antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false });
+    if (!gl) throw new Error("WebGL not supported");
+
+    const vertexSrc = `attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+
+    function buildFrag(forFlutter = false) {
+      const header = forFlutter
+? `#version 460 core
+#include <flutter/runtime_effect.glsl>
+
+precision mediump float;
+out vec4 fragColor;
+
+uniform vec2 uResolution;    // 0,1
+uniform float uTime;         // 2
+uniform float uDensity;      // 3
+uniform float uCurl;         // 4
+uniform float uTurbulence;   // 5
+uniform float uEdge;         // 6
+uniform float uSoftness;     // 7
+uniform float uSpread;       // 8
+uniform float uRedness;      // 9
+uniform float uCurlSize;     // 10
+uniform float uCurlCount;    // 11
+uniform float uCurlDynamics; // 12
+uniform float uEdgeUpper;    // 13
+uniform float uEdgeLower;    // 14
+`
+: `precision mediump float;
+
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uDensity;
+uniform float uCurl;
+uniform float uTurbulence;
+uniform float uEdge;
+uniform float uSoftness;
+uniform float uSpread;
+uniform float uRedness;
+uniform float uCurlSize;
+uniform float uCurlCount;
+uniform float uCurlDynamics;
+uniform float uEdgeUpper;
+uniform float uEdgeLower;
+`;
+      const fragCoordLine = forFlutter ? `vec2 fragCoord = FlutterFragCoord().xy;` : `vec2 fragCoord = gl_FragCoord.xy;`;
+      const outLine = forFlutter ? `fragColor = vec4(col, 1.0);` : `gl_FragColor = vec4(col, 1.0);`;
+      return `${header}
+float hash21(vec2 p){ p = fract(p * vec2(0.1031, 0.11369)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
+float noise(vec2 p){ vec2 i=floor(p); vec2 f=fract(p); f=f*f*(3.0-2.0*f); float a=hash21(i); float b=hash21(i+vec2(1.0,0.0)); float c=hash21(i+vec2(0.0,1.0)); float d=hash21(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }
+float n2(vec2 p){ float a=noise(p); float b=noise(p*2.03+vec2(7.1,3.4)); return mix(a,b,0.35); }
+mat2 rot(float a){ float s=sin(a); float c=cos(a); return mat2(c,-s,s,c); }
+vec2 swirl(vec2 p, vec2 center, float radius, float strength){ vec2 d=p-center; float r=length(d); float w=1.0-smoothstep(radius*0.28,radius,r); float a=strength*w*(0.40+0.60*(1.0-clamp(r/radius,0.0,1.0))); d=rot(a)*d; return center+d; }
+vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbulence, float spread, float softness){
+  vec2 q=p-src; float x=q.x; if(x<=0.0) return vec3(0.0);
+  q.y *= 1.0 / mix(1.0, 1.30, spread - 1.0);
+  float dyn=uCurlDynamics; float size=uCurlSize; float count=uCurlCount;
+  q = swirl(q, vec2(0.52+0.05*sin(t*0.21*dyn+seed*3.1), -0.03+0.04*sin(t*0.17*dyn+seed*1.4)), 0.16*size*mix(0.9,1.2,spread), 0.92*curl);
+  q = swirl(q, vec2(0.98+0.04*sin(t*0.15*dyn+seed*4.2), 0.04+0.03*sin(t*0.13*dyn+seed*2.4)), 0.14*size*mix(0.9,1.2,spread), -1.06*curl);
+  if(count>0.5) q = swirl(q, vec2(1.34+0.05*sin(t*0.11*dyn+seed*5.7), -0.02+0.025*sin(t*0.19*dyn+seed*1.8)), 0.12*size*mix(0.9,1.2,spread), 0.78*curl);
+  if(count>1.5) q = swirl(q, vec2(0.74+0.05*sin(t*0.16*dyn+seed*6.1), 0.10+0.025*sin(t*0.12*dyn+seed*3.4)), 0.11*size*mix(0.9,1.2,spread), -0.72*curl);
+  if(count>2.5) q = swirl(q, vec2(1.62+0.04*sin(t*0.10*dyn+seed*8.0), 0.03+0.02*sin(t*0.09*dyn+seed*2.7)), 0.10*size*mix(0.9,1.2,spread), 0.58*curl);
+  float centerLine = -0.14*x + 0.055*sin(x*1.45+t*0.29+seed*10.0) + 0.018*sin(x*4.4-t*0.37+seed*16.0) + (n2(vec2(x*0.72+seed*2.0,-t*0.03))-0.5)*0.030*turbulence;
+  float y=q.y-centerLine; float ad=abs(y);
+  float w=mix(0.018,0.072,smoothstep(0.0,1.52,x)); w*=mix(0.88,1.20,softness); w*=mix(0.86,1.28,spread);
+  float body=1.0-smoothstep(w*0.14,w*0.88,ad);
+  float veil=1.0-smoothstep(w*0.88,w*2.45,ad);
+  float upperBand=smoothstep(w*0.16,w*0.50,y)*(1.0-smoothstep(w*0.68,w*1.04,y));
+  float lowerBand=smoothstep(w*0.16,w*0.50,-y)*(1.0-smoothstep(w*0.68,w*1.04,-y));
+  float edgeNoiseUpper=n2(vec2(x*1.30-t*0.04+seed*8.0,y*7.2+seed*3.4)); edgeNoiseUpper=smoothstep(0.34,0.90,edgeNoiseUpper);
+  float edgeNoiseLower=n2(vec2(x*1.15+t*0.03+seed*4.8,y*6.1-seed*1.7)); edgeNoiseLower=smoothstep(0.32,0.90,edgeNoiseLower);
+  float bodyNoise=n2(vec2(x*1.10+seed*5.0,y*4.8-t*0.02)); bodyNoise=smoothstep(0.20,0.88,bodyNoise);
+  float upperEdge=upperBand*edgeNoiseUpper*uEdgeUpper;
+  float lowerEdge=lowerBand*edgeNoiseLower*uEdgeLower;
+  float edgeMix=upperEdge+lowerEdge;
+  float fade=smoothstep(0.0,0.08,x); fade*=1.0-smoothstep(1.42,2.30,x); fade*=1.0-smoothstep(0.80,1.34,p.y);
+  float density=(body*0.25+veil*0.11+edgeMix*0.32)*bodyNoise*fade;
+  float edgeWeight=edgeMix*fade;
+  float mist=veil*0.08*fade;
+  return vec3(density,edgeWeight,mist);
+}
+vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float turbulence, float spread, float softness){
+  vec2 pp=p; pp.x*=-side;
+  float s2=smoothstep(0.45,0.82,densityCtrl); float s3=smoothstep(0.82,1.18,densityCtrl); float s4=smoothstep(1.18,1.55,densityCtrl);
+  float localSpread=mix(0.90,1.34,smoothstep(0.50,1.55,densityCtrl))*spread;
+  float localSoft=mix(0.92,1.18,smoothstep(0.45,1.55,densityCtrl))*softness;
+  vec3 a=strandEval(pp, vec2(-1.04,-0.10), t, 0.19+side*0.11, curl, turbulence, localSpread, localSoft);
+  vec3 b=strandEval(pp+vec2(0.0,0.03), vec2(-1.08,0.00), t*0.96+2.6, 0.57+side*0.07, curl, turbulence, localSpread, localSoft);
+  vec3 c=strandEval(pp+vec2(0.0,-0.04), vec2(-1.11,0.09), t*1.03+4.1, 0.91+side*0.05, curl*1.02, turbulence, localSpread, localSoft);
+  vec3 d=strandEval(pp+vec2(0.0,0.06), vec2(-1.14,-0.18), t*0.90+6.7, 1.29+side*0.09, curl*0.92, turbulence, localSpread, localSoft);
+  float density=a.x+b.x*s2+c.x*s3+d.x*s4; float edge=a.y+b.y*s2+c.y*s3+d.y*s4; float mist=a.z+b.z*s2+c.z*s3+d.z*s4; return vec3(density,edge,mist);
+}
+void main(){
+  ${fragCoordLine}
+  vec2 uv=fragCoord/uResolution; vec2 p=(fragCoord-0.5*uResolution)/uResolution.y; float t=uTime;
+  vec3 bg=mix(vec3(0.028,0.030,0.034), vec3(0.11,0.11,0.11), smoothstep(-0.82,0.92,p.y));
+  bg += 0.040 * exp(-2.4 * dot(p - vec2(-0.34, 0.02), p - vec2(-0.34, 0.02)));
+  bg += 0.012 * exp(-4.0 * dot(p - vec2(0.18, 0.10), p - vec2(0.18, 0.10)));
+  vec3 left=smokeSide(p,-1.0,t,uDensity,uCurl,uTurbulence,uSpread,uSoftness);
+  vec3 right=smokeSide(p,1.0,t+1.1,uDensity,uCurl,uTurbulence,uSpread,uSoftness);
+  float density=left.x+right.x; float edge=left.y+right.y; float mist=left.z+right.z;
+  float alpha=1.0-exp(-(density+mist*0.55)*1.12); alpha=clamp(alpha,0.0,0.82);
+  float edgeRatio=clamp(edge/max(density+mist*0.4,0.0001),0.0,1.0); edgeRatio*=mix(0.55,1.45,clamp(uEdge*0.5,0.0,1.0)); edgeRatio=clamp(edgeRatio,0.0,1.0);
+  float toneNoise=n2(vec2(p.x*1.9+1.1,p.y*2.6-t*0.02)); float tone=mix(0.78,0.92,toneNoise);
+  vec3 neutralBodyA=vec3(0.50,0.52,0.56); vec3 neutralBodyB=vec3(0.74,0.76,0.79); vec3 neutralEdge=vec3(0.94,0.95,0.96);
+  vec3 redBodyA=vec3(0.28,0.04,0.03); vec3 redBodyB=vec3(0.70,0.12,0.08); vec3 redEdge=vec3(0.98,0.27,0.18);
+  vec3 bodyColor=mix(neutralBodyA,neutralBodyB,tone); vec3 edgeColor=neutralEdge;
+  vec3 redBody=mix(redBodyA,redBodyB,tone); vec3 redEdgeColor=redEdge;
+  bodyColor=mix(bodyColor,redBody,uRedness); edgeColor=mix(edgeColor,redEdgeColor,uRedness);
+  vec3 smokeColor=mix(bodyColor,edgeColor,edgeRatio);
+  vec3 col=mix(bg,smokeColor,alpha);
+  float vignette=smoothstep(1.24,0.28,length(uv-0.5)); col*=vignette;
+  ${outLine}
+}`;
+    }
+
+    function createShader(gl, type, source){ const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ const info=gl.getShaderInfoLog(s); gl.deleteShader(s); throw new Error(info);} return s; }
+    function createProgram(gl, vsSource, fsSource){ const vs=createShader(gl, gl.VERTEX_SHADER, vsSource); const fs=createShader(gl, gl.FRAGMENT_SHADER, fsSource); const p=gl.createProgram(); gl.attachShader(p,vs); gl.attachShader(p,fs); gl.linkProgram(p); if(!gl.getProgramParameter(p, gl.LINK_STATUS)){ const info=gl.getProgramInfoLog(p); gl.deleteProgram(p); throw new Error(info);} return p; }
+
+    const program = createProgram(gl, vertexSrc, buildFrag(false));
+    gl.useProgram(program);
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    const aPosition = gl.getAttribLocation(program, "aPosition");
+    gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+    const uResolution = gl.getUniformLocation(program, "uResolution");
+    const uTime = gl.getUniformLocation(program, "uTime");
+    const uDensity = gl.getUniformLocation(program, "uDensity");
+    const uCurl = gl.getUniformLocation(program, "uCurl");
+    const uTurbulence = gl.getUniformLocation(program, "uTurbulence");
+    const uEdge = gl.getUniformLocation(program, "uEdge");
+    const uSoftness = gl.getUniformLocation(program, "uSoftness");
+    const uSpread = gl.getUniformLocation(program, "uSpread");
+    const uRedness = gl.getUniformLocation(program, "uRedness");
+    const uCurlSize = gl.getUniformLocation(program, "uCurlSize");
+    const uCurlCount = gl.getUniformLocation(program, "uCurlCount");
+    const uCurlDynamics = gl.getUniformLocation(program, "uCurlDynamics");
+    const uEdgeUpper = gl.getUniformLocation(program, "uEdgeUpper");
+    const uEdgeLower = gl.getUniformLocation(program, "uEdgeLower");
+
+    const controls = {
+      density: document.getElementById("density"), speed: document.getElementById("speed"), curl: document.getElementById("curl"), curlSize: document.getElementById("curlSize"), curlCount: document.getElementById("curlCount"), curlDynamics: document.getElementById("curlDynamics"), turbulence: document.getElementById("turbulence"), edge: document.getElementById("edge"), edgeUpper: document.getElementById("edgeUpper"), edgeLower: document.getElementById("edgeLower"), softness: document.getElementById("softness"), spread: document.getElementById("spread"), redness: document.getElementById("redness"), renderScale: document.getElementById("renderScale")
+    };
+    const values = {
+      density: document.getElementById("densityValue"), speed: document.getElementById("speedValue"), curl: document.getElementById("curlValue"), curlSize: document.getElementById("curlSizeValue"), curlCount: document.getElementById("curlCountValue"), curlDynamics: document.getElementById("curlDynamicsValue"), turbulence: document.getElementById("turbulenceValue"), edge: document.getElementById("edgeValue"), edgeUpper: document.getElementById("edgeUpperValue"), edgeLower: document.getElementById("edgeLowerValue"), softness: document.getElementById("softnessValue"), spread: document.getElementById("spreadValue"), redness: document.getElementById("rednessValue"), renderScale: document.getElementById("renderScaleValue")
+    };
+
+    const speedHint = document.getElementById("speedHint");
+    const fpsInstantEl = document.getElementById("fpsInstant");
+    const fpsAvgEl = document.getElementById("fpsAvg");
+    const fpsResEl = document.getElementById("fpsRes");
+    const fpsSpeedEl = document.getElementById("fpsSpeed");
+
+    let density = parseFloat(controls.density.value);
+    let speedPending = parseFloat(controls.speed.value);
+    let speedTarget = speedPending;
+    let speedCurrent = speedPending;
+    let curl = parseFloat(controls.curl.value);
+    let curlSize = parseFloat(controls.curlSize.value);
+    let curlCount = parseFloat(controls.curlCount.value);
+    let curlDynamics = parseFloat(controls.curlDynamics.value);
+    let turbulence = parseFloat(controls.turbulence.value);
+    let edge = parseFloat(controls.edge.value);
+    let edgeUpper = parseFloat(controls.edgeUpper.value);
+    let edgeLower = parseFloat(controls.edgeLower.value);
+    let softness = parseFloat(controls.softness.value);
+    let spread = parseFloat(controls.spread.value);
+    let redness = parseFloat(controls.redness.value);
+    let renderScale = parseFloat(controls.renderScale.value);
+
+    function updateLabels(){
+      values.density.textContent = density.toFixed(2);
+      values.speed.textContent = speedPending.toFixed(2);
+      values.curl.textContent = curl.toFixed(2);
+      values.curlSize.textContent = curlSize.toFixed(2);
+      values.curlCount.textContent = String(Math.round(curlCount));
+      values.curlDynamics.textContent = curlDynamics.toFixed(2);
+      values.turbulence.textContent = turbulence.toFixed(2);
+      values.edge.textContent = edge.toFixed(2);
+      values.edgeUpper.textContent = edgeUpper.toFixed(2);
+      values.edgeLower.textContent = edgeLower.toFixed(2);
+      values.softness.textContent = softness.toFixed(2);
+      values.spread.textContent = spread.toFixed(2);
+      values.redness.textContent = redness.toFixed(2);
+      values.renderScale.textContent = renderScale.toFixed(2);
+      speedHint.textContent = `pending ${speedPending.toFixed(2)} · applied ${speedCurrent.toFixed(2)}`;
+    }
+
+    controls.density.addEventListener("input", ()=>{ density=parseFloat(controls.density.value); updateLabels();});
+    controls.curl.addEventListener("input", ()=>{ curl=parseFloat(controls.curl.value); updateLabels();});
+    controls.curlSize.addEventListener("input", ()=>{ curlSize=parseFloat(controls.curlSize.value); updateLabels();});
+    controls.curlCount.addEventListener("input", ()=>{ curlCount=parseFloat(controls.curlCount.value); updateLabels();});
+    controls.curlDynamics.addEventListener("input", ()=>{ curlDynamics=parseFloat(controls.curlDynamics.value); updateLabels();});
+    controls.turbulence.addEventListener("input", ()=>{ turbulence=parseFloat(controls.turbulence.value); updateLabels();});
+    controls.edge.addEventListener("input", ()=>{ edge=parseFloat(controls.edge.value); updateLabels();});
+    controls.edgeUpper.addEventListener("input", ()=>{ edgeUpper=parseFloat(controls.edgeUpper.value); updateLabels();});
+    controls.edgeLower.addEventListener("input", ()=>{ edgeLower=parseFloat(controls.edgeLower.value); updateLabels();});
+    controls.softness.addEventListener("input", ()=>{ softness=parseFloat(controls.softness.value); updateLabels();});
+    controls.spread.addEventListener("input", ()=>{ spread=parseFloat(controls.spread.value); updateLabels();});
+    controls.redness.addEventListener("input", ()=>{ redness=parseFloat(controls.redness.value); updateLabels();});
+    controls.renderScale.addEventListener("input", ()=>{ renderScale=parseFloat(controls.renderScale.value); resize(); updateLabels();});
+
+    function commitSpeed(){ speedTarget = speedPending; updateLabels(); }
+    controls.speed.addEventListener("input", ()=>{ speedPending=parseFloat(controls.speed.value); updateLabels();});
+    controls.speed.addEventListener("change", commitSpeed);
+    controls.speed.addEventListener("pointerup", commitSpeed);
+    controls.speed.addEventListener("touchend", commitSpeed);
+
+    document.getElementById("copyFrag").addEventListener("click", async ()=>{ try { await navigator.clipboard.writeText(buildFrag(true)); } catch(e){ console.error(e);} });
+    document.getElementById("downloadFrag").addEventListener("click", ()=>{ const src=buildFrag(true); const blob=new Blob([src], {type:"text/plain;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="natural_edge_smoke_lr_advanced.frag"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); });
+
+    let internalW = 512, internalH = 300;
+    function resize(){ internalW=Math.max(1, Math.round(BASE_W * renderScale)); internalH=Math.max(1, Math.round(BASE_H * renderScale)); canvas.width=internalW; canvas.height=internalH; gl.viewport(0,0,internalW,internalH); fpsResEl.textContent=`${internalW}×${internalH}`; }
+
+    updateLabels(); resize();
+    let lastFrameTime = performance.now(); let fpsAvg = 0.0; let shaderTime = 0.0;
+    function render(now){
+      const dtMs=Math.max(0.0001, now-lastFrameTime); lastFrameTime=now; const dt=dtMs*0.001;
+      const ease=Math.min(1.0, dt*6.0); speedCurrent += (speedTarget-speedCurrent)*ease; shaderTime += dt*speedCurrent;
+      const fpsInstant=1000.0/dtMs; fpsAvg=fpsAvg===0.0?fpsInstant:fpsAvg*0.92+fpsInstant*0.08;
+      fpsInstantEl.textContent=fpsInstant.toFixed(1); fpsAvgEl.textContent=fpsAvg.toFixed(1); fpsSpeedEl.textContent=speedCurrent.toFixed(2); speedHint.textContent=`pending ${speedPending.toFixed(2)} · applied ${speedCurrent.toFixed(2)}`;
+      gl.useProgram(program);
+      gl.uniform2f(uResolution, internalW, internalH);
+      gl.uniform1f(uTime, shaderTime);
+      gl.uniform1f(uDensity, density);
+      gl.uniform1f(uCurl, curl);
+      gl.uniform1f(uTurbulence, turbulence);
+      gl.uniform1f(uEdge, edge);
+      gl.uniform1f(uSoftness, softness);
+      gl.uniform1f(uSpread, spread);
+      gl.uniform1f(uRedness, redness);
+      gl.uniform1f(uCurlSize, curlSize);
+      gl.uniform1f(uCurlCount, curlCount);
+      gl.uniform1f(uCurlDynamics, curlDynamics);
+      gl.uniform1f(uEdgeUpper, edgeUpper);
+      gl.uniform1f(uEdgeLower, edgeLower);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
