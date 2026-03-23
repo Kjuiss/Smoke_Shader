@@ -1,100 +1,418 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Natural Edge Smoke LR · Advanced Controls</title>
+  <title>Natural Edge Smoke LR · Macro Controls</title>
   <style>
     :root {
-      --panel-bg: rgba(18, 22, 30, 0.78);
+      --panel-bg: rgba(18, 22, 30, 0.80);
       --panel-border: rgba(255,255,255,0.08);
       --text-dim: rgba(235,240,250,0.72);
     }
-    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#0a0d12; color:#e9edf5; font-family: Inter, system-ui, Arial, sans-serif; }
-    .stage { position:fixed; inset:0; display:grid; place-items:center; padding:24px; box-sizing:border-box; }
-    #gl { width:min(1024px, calc(100vw - 48px)); aspect-ratio:1024 / 600; display:block; border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,0.45); background:#0a0d12; }
-    .ui { position:fixed; top:20px; left:20px; width:392px; max-height:calc(100vh - 40px); overflow:auto; padding:16px 18px; border-radius:18px; background:var(--panel-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--panel-border); box-shadow:0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05); }
-    .fps { position:fixed; top:20px; right:20px; min-width:205px; padding:10px 12px; border-radius:14px; background:var(--panel-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--panel-border); box-shadow:0 10px 40px rgba(0,0,0,0.35); font-size:12px; line-height:1.5; }
-    h1 { font-size:16px; margin:0 0 10px; font-weight:600; letter-spacing:0.2px; }
-    .meta { margin:0 0 14px; font-size:12px; line-height:1.45; color:var(--text-dim); }
-    .section { margin:14px 0 8px; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:rgba(235,240,250,0.62); }
-    .control { margin-bottom:14px; }
-    .row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; color:#cfd6e6; }
-    .label { display:flex; align-items:center; gap:6px; min-width:0; }
-    .label-text { white-space:nowrap; }
-    .value { color:#ffffff; font-variant-numeric:tabular-nums; opacity:0.95; white-space:nowrap; }
-    input[type="range"] { width:100%; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.14); outline:none; }
-    input[type="range"]::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:#ffffff; box-shadow:0 2px 10px rgba(0,0,0,0.25); cursor:pointer; border:none; }
-    input[type="range"]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#ffffff; cursor:pointer; border:none; }
-    .info { position:relative; width:16px; height:16px; border-radius:50%; display:inline-grid; place-items:center; font-size:11px; font-weight:700; color:white; background:rgba(255,255,255,0.12); cursor:help; flex:0 0 16px; }
-    .info:hover::after { content:attr(data-tip); position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%); width:220px; padding:9px 10px; border-radius:10px; background:rgba(10,12,18,0.96); color:#eef2fa; border:1px solid rgba(255,255,255,0.10); box-shadow:0 10px 28px rgba(0,0,0,0.35); font-size:11px; line-height:1.42; white-space:normal; z-index:50; pointer-events:none; }
-    .subhint { margin-top:-6px; margin-bottom:10px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.62); }
-    .actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
-    button { appearance:none; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:white; padding:10px 12px; font:inherit; cursor:pointer; }
-    button:hover { background:rgba(255,255,255,0.16); }
-    .hint { margin-top:10px; font-size:12px; line-height:1.45; color:var(--text-dim); }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #0a0d12; color: #e9edf5;
+      font-family: Inter, system-ui, Arial, sans-serif;
+    }
+    .stage {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      padding: 24px; box-sizing: border-box;
+    }
+    #gl {
+      width: min(1024px, calc(100vw - 48px));
+      aspect-ratio: 1024 / 600;
+      display: block; border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+      background: #0a0d12;
+    }
+    .overlay {
+      position: absolute;
+      width: min(1024px, calc(100vw - 48px));
+      aspect-ratio: 1024 / 600;
+      pointer-events: none;
+    }
+    .cross {
+      position: absolute;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .cross:before, .cross:after {
+      content: "";
+      position: absolute;
+      background: rgba(255,255,255,0.95);
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .cross:before { width: 12px; height: 1.6px; }
+    .cross:after { width: 1.6px; height: 12px; }
+    .cross-label {
+      position: absolute;
+      left: 50%; top: calc(100% + 6px);
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+      pointer-events: none;
+    }
+    .ui {
+      position: fixed; top: 20px; left: 20px; width: 420px; max-height: calc(100vh - 40px);
+      overflow: auto; padding: 16px 18px; border-radius: 18px;
+      background: var(--panel-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .fps {
+      position: fixed; top: 20px; right: 20px; min-width: 220px; padding: 10px 12px;
+      border-radius: 14px; background: var(--panel-bg); backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px); border: 1px solid var(--panel-border);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35); font-size: 12px; line-height: 1.5;
+    }
+    h1 { font-size: 16px; margin: 0 0 10px; font-weight: 600; letter-spacing: 0.2px; }
+    .meta { margin: 0 0 14px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+    .section { margin: 14px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(235,240,250,0.62); }
+    .control { margin-bottom: 14px; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; color: #cfd6e6; }
+    .label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .label-text { white-space: nowrap; }
+    .value { color: #ffffff; font-variant-numeric: tabular-nums; opacity: 0.95; white-space: nowrap; }
+    input[type="range"] { width: 100%; appearance: none; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer; border: none; }
+    input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; cursor: pointer; border: none; }
+    .info {
+      position: relative; width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center;
+      font-size: 11px; font-weight: 700; color: white; background: rgba(255,255,255,0.12); cursor: help; flex: 0 0 16px;
+    }
+    .info:hover::after {
+      content: attr(data-tip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      width: 225px; padding: 9px 10px; border-radius: 10px; background: rgba(10,12,18,0.96); color: #eef2fa;
+      border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+      font-size: 11px; line-height: 1.42; white-space: normal; z-index: 50; pointer-events: none;
+    }
+    .subhint { margin-top: -6px; margin-bottom: 10px; font-size: 11px; line-height: 1.4; color: rgba(235,240,250,0.62); }
+    .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      appearance: none; border: none; border-radius: 12px; background: rgba(255,255,255,0.10);
+      color: white; padding: 10px 12px; font: inherit; cursor: pointer;
+    }
+    button:hover { background: rgba(255,255,255,0.16); }
+    .hint { margin-top: 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
+
+    .macro-toolbar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .macro-zone {
+      display: grid; gap: 10px;
+    }
+    .macro {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .macro-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+      font-size: 12px; color: rgba(255,255,255,0.92);
+    }
+    .macro-drop {
+      min-height: 38px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.03);
+      display: flex; flex-wrap: wrap; gap: 6px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .macro-drop.dragover {
+      border-color: rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.08);
+    }
+    .chip-list {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+    }
+    .chip, .bound-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 11px; color: rgba(255,255,255,0.92);
+      user-select: none;
+    }
+    .chip { cursor: grab; }
+    .bound-chip button {
+      padding: 0; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer;
+      font-size: 12px; line-height: 1;
+    }
+    .tiny {
+      font-size: 11px; color: rgba(255,255,255,0.65);
+    }
   </style>
 </head>
 <body>
-  <div class="stage"><canvas id="gl"></canvas></div>
+  <div class="stage">
+    <canvas id="gl"></canvas>
+    <div class="overlay" id="overlay"></div>
+  </div>
+
   <div class="ui">
-    <h1>Natural Edge Smoke · Advanced Controls</h1>
-    <div class="meta">Links/rechts-Aufbau bleibt. Die helle Kante ist lokal statt permanent, der Körper transparenter und die Außenränder fransen weicher aus. Der Spread-Bereich ist jetzt deutlich breiter und Curl/Edge lassen sich feiner zerlegen.</div>
+    <h1>Natural Edge Smoke · Macro Controls</h1>
+    <div class="meta">
+      Mehr prägnante Edges, weich auslaufende Edge-Breaks, größere Softness-Range, Curl Count bis 6
+      und Makro-Slider mit Drag-and-Drop-Bindings.
+    </div>
+
     <div class="section">Look</div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Smoke Density</span><span class="info" data-tip="Mehr Rauch bedeutet hier: zusätzliche Fahnen, mehr Sekundärvolumen und breitere Körper. Leistung: mittel.">i</span></div><span class="value" id="densityValue">1.00</span></div><input id="density" type="range" min="0.30" max="1.80" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="density">
+      <div class="row">
+        <div class="label"><span class="label-text">Smoke Density</span><span class="info" data-tip="Mehr Rauch heißt hier: zusätzliche Fahnen, mehr Volumen und breitere Körper. Leistung: mittel.">i</span></div>
+        <span class="value" id="densityValue">1.00</span>
+      </div>
+      <input id="density" type="range" min="0.30" max="1.80" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Flow Speed</span><span class="info" data-tip="Beim Ziehen ändert sich nur der Pending-Wert. Erst beim Loslassen wird die neue Geschwindigkeit übernommen und weich angefahren. Leistung: praktisch kostenlos.">i</span></div><span class="value" id="speedValue">1.00</span></div><input id="speed" type="range" min="0.10" max="2.40" step="0.01" value="1.00" /><div class="subhint" id="speedHint">pending 1.00 · applied 1.00</div></div>
+    <div class="control" data-chip="speed">
+      <div class="row">
+        <div class="label"><span class="label-text">Flow Speed</span><span class="info" data-tip="Während des Ziehens nur pending. Erst beim Loslassen übernommen und dann weich angefahren. Leistung: praktisch kostenlos.">i</span></div>
+        <span class="value" id="speedValue">1.00</span>
+      </div>
+      <input id="speed" type="range" min="0.10" max="2.40" step="0.01" value="1.00" />
+      <div class="subhint" id="speedHint">pending 1.00 · applied 1.00</div>
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Swirl / Curl</span><span class="info" data-tip="Grundstärke der lokalen Wirbel. Höher = mehr Formveränderung entlang der Fahnen. Leistung: mittel.">i</span></div><span class="value" id="curlValue">1.00</span></div><input id="curl" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="curl">
+      <div class="row">
+        <div class="label"><span class="label-text">Swirl / Curl</span><span class="info" data-tip="Grundstärke der Wirbel. Leistung: mittel.">i</span></div>
+        <span class="value" id="curlValue">1.00</span>
+      </div>
+      <input id="curl" type="range" min="0.00" max="2.00" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Curl Size</span><span class="info" data-tip="Größe/Radius der Wirbel. Klein = nervöser, groß = weichere größere Bögen. Leistung: niedrig bis mittel.">i</span></div><span class="value" id="curlSizeValue">1.00</span></div><input id="curlSize" type="range" min="0.50" max="1.80" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="curlSize">
+      <div class="row">
+        <div class="label"><span class="label-text">Curl Size</span><span class="info" data-tip="Größe der Wirbelradien. Klein = nervöser, groß = breitere Bögen. Leistung: niedrig bis mittel.">i</span></div>
+        <span class="value" id="curlSizeValue">1.00</span>
+      </div>
+      <input id="curlSize" type="range" min="0.50" max="1.80" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Curl Count</span><span class="info" data-tip="Wie viele zusätzliche Wirbelstationen entlang einer Fahne aktiv sind. Höher = abwechslungsreicher, aber teurer. Leistung: mittel bis hoch.">i</span></div><span class="value" id="curlCountValue">2</span></div><input id="curlCount" type="range" min="0" max="3" step="1" value="2" /></div>
+    <div class="control" data-chip="curlCount">
+      <div class="row">
+        <div class="label"><span class="label-text">Curl Count</span><span class="info" data-tip="Zusätzliche Wirbelstationen entlang einer Fahne. Jetzt bis 6. Leistung: mittel bis hoch.">i</span></div>
+        <span class="value" id="curlCountValue">2</span>
+      </div>
+      <input id="curlCount" type="range" min="0.00" max="6.00" step="1.00" value="2.00" />
+      <div class="subhint" id="curlCountHint">pending 2 · applied 2.00</div>
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Dynamic Curls</span><span class="info" data-tip="Zeitliche Lebendigkeit der Wirbelpositionen. Höher = organischer, aber auch unruhiger. Leistung: mittel.">i</span></div><span class="value" id="curlDynamicsValue">1.00</span></div><input id="curlDynamics" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="curlDynamics">
+      <div class="row">
+        <div class="label"><span class="label-text">Dynamic Curls</span><span class="info" data-tip="Zeitliche Lebendigkeit der Curl-Positionen. Leistung: mittel.">i</span></div>
+        <span class="value" id="curlDynamicsValue">1.00</span>
+      </div>
+      <input id="curlDynamics" type="range" min="0.00" max="2.00" step="0.01" value="1.00" />
+      <div class="subhint" id="curlDynamicsHint">pending 1.00 · applied 1.00</div>
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Turbulence</span><span class="info" data-tip="Feinere Unruhe in den Konturen. Höher = natürlicher bis chaotischer. Leistung: mittel.">i</span></div><span class="value" id="turbulenceValue">1.00</span></div><input id="turbulence" type="range" min="0.00" max="1.80" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="turbulence">
+      <div class="row">
+        <div class="label"><span class="label-text">Turbulence</span><span class="info" data-tip="Feinere Unruhe in den Konturen. Wirkung bewusst stärker abgestimmt. Leistung: mittel.">i</span></div>
+        <span class="value" id="turbulenceValue">1.00</span>
+      </div>
+      <input id="turbulence" type="range" min="0.00" max="2.20" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Spread</span><span class="info" data-tip="Jetzt mit breiterem Bereich. Öffnet die Fahnen weiter im Raum. Höher = luftiger und weiter verteilt, aber kann schneller flächig wirken. Leistung: niedrig.">i</span></div><span class="value" id="spreadValue">1.00</span></div><input id="spread" type="range" min="0.35" max="2.20" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="spread">
+      <div class="row">
+        <div class="label"><span class="label-text">Spread</span><span class="info" data-tip="Weiter geöffnet. Jetzt bewusst breiterer Bereich. Leistung: niedrig.">i</span></div>
+        <span class="value" id="spreadValue">1.00</span>
+      </div>
+      <input id="spread" type="range" min="0.35" max="2.20" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Softness</span><span class="info" data-tip="Macht den Rauchkörper milchiger und die Übergänge breiter. Leistung: niedrig.">i</span></div><span class="value" id="softnessValue">1.00</span></div><input id="softness" type="range" min="0.60" max="1.60" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="softness">
+      <div class="row">
+        <div class="label"><span class="label-text">Softness</span><span class="info" data-tip="Jetzt mit größerem Bereich. Höher = breiterer, milchigerer Rauchkörper. Leistung: niedrig.">i</span></div>
+        <span class="value" id="softnessValue">1.00</span>
+      </div>
+      <input id="softness" type="range" min="0.40" max="2.20" step="0.01" value="1.00" />
+    </div>
 
     <div class="section">Edges</div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Edge Definition</span><span class="info" data-tip="Gesamte Kantenwirkung. Zu hoch wird wieder schlauchartig. Leistung: niedrig.">i</span></div><span class="value" id="edgeValue">1.00</span></div><input id="edge" type="range" min="0.20" max="2.00" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="edge">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Definition</span><span class="info" data-tip="Gesamte Kantenbetonung. Wirkung jetzt kräftiger abgestimmt. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeValue">1.00</span>
+      </div>
+      <input id="edge" type="range" min="0.20" max="2.40" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Upper Edge</span><span class="info" data-tip="Betont stärker die obere Rauchhaut einer Fahne. Gut für asymmetrischeres Licht. Leistung: niedrig.">i</span></div><span class="value" id="edgeUpperValue">1.00</span></div><input id="edgeUpper" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="edgeSharpness">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Sharpness</span><span class="info" data-tip="Macht die Edge-Bänder schärfer und den Übergang prägnanter. Jetzt spürbar stärker. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeSharpnessValue">1.00</span>
+      </div>
+      <input id="edgeSharpness" type="range" min="0.40" max="2.80" step="0.01" value="1.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Lower Edge</span><span class="info" data-tip="Betont stärker die untere Rauchhaut einer Fahne. So lassen sich obere und untere Kanten unterschiedlich einstellen. Leistung: niedrig.">i</span></div><span class="value" id="edgeLowerValue">1.00</span></div><input id="edgeLower" type="range" min="0.00" max="2.00" step="0.01" value="1.00" /></div>
+    <div class="control" data-chip="edgeGradient">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Gradient</span><span class="info" data-tip="Verlagert den Kantenverlauf deutlicher von Upper zu Lower Edge entlang der Fahne. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeGradientValue">0.50</span>
+      </div>
+      <input id="edgeGradient" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
+    </div>
+
+    <div class="control" data-chip="edgeUpper">
+      <div class="row">
+        <div class="label"><span class="label-text">Upper Edge</span><span class="info" data-tip="Separat obere Rauchhaut betonen. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeUpperValue">1.00</span>
+      </div>
+      <input id="edgeUpper" type="range" min="0.00" max="2.40" step="0.01" value="1.00" />
+    </div>
+
+    <div class="control" data-chip="edgeLower">
+      <div class="row">
+        <div class="label"><span class="label-text">Lower Edge</span><span class="info" data-tip="Separat untere Rauchhaut betonen. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeLowerValue">1.00</span>
+      </div>
+      <input id="edgeLower" type="range" min="0.00" max="2.40" step="0.01" value="1.00" />
+    </div>
+
+    <div class="control" data-chip="edgeBreakCount">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Break Count</span><span class="info" data-tip="Unterbrechungen in den langen Kanten. Jetzt 0–8. Pro Fahne leicht versetzt. Leistung: mittel.">i</span></div>
+        <span class="value" id="edgeBreakCountValue">2</span>
+      </div>
+      <input id="edgeBreakCount" type="range" min="0.00" max="8.00" step="1.00" value="2.00" />
+    </div>
+
+    <div class="control" data-chip="edgeBreakStrength">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Break Strength</span><span class="info" data-tip="Wie tief die Breaks in die Kante schneiden. Wirkung jetzt erhalten. Leistung: niedrig.">i</span></div>
+        <span class="value" id="edgeBreakStrengthValue">0.50</span>
+      </div>
+      <input id="edgeBreakStrength" type="range" min="0.00" max="1.40" step="0.01" value="0.50" />
+    </div>
+
+    <div class="control" data-chip="edgeBreakSoftness">
+      <div class="row">
+        <div class="label"><span class="label-text">Edge Break Softness</span><span class="info" data-tip="Weicher, langer Verlauf vom Break zurück in die ungebrochene Kante. Genau für die langen weichen Ausläufe. Leistung: niedrig bis mittel.">i</span></div>
+        <span class="value" id="edgeBreakSoftnessValue">1.00</span>
+      </div>
+      <input id="edgeBreakSoftness" type="range" min="0.20" max="3.00" step="0.01" value="1.00" />
+    </div>
 
     <div class="section">Color & Performance</div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Red Smoke</span><span class="info" data-tip="Kein Filter. Die eigentliche Rauchpalette wird von neutral auf rote Körper- und Kantenfarben umgebaut. Leistung: niedrig.">i</span></div><span class="value" id="rednessValue">0.00</span></div><input id="redness" type="range" min="0.00" max="1.00" step="0.01" value="0.00" /></div>
+    <div class="control" data-chip="redness">
+      <div class="row">
+        <div class="label"><span class="label-text">Red Smoke</span><span class="info" data-tip="Kein Filter. Die eigentliche Rauchpalette wird in rote Körper- und Kantenfarben umgebaut. Leistung: niedrig.">i</span></div>
+        <span class="value" id="rednessValue">0.00</span>
+      </div>
+      <input id="redness" type="range" min="0.00" max="1.00" step="0.01" value="0.00" />
+    </div>
 
-    <div class="control"><div class="row"><div class="label"><span class="label-text">Render Scale</span><span class="info" data-tip="Stärkster FPS-Hebel. 0.50 entspricht ca. 512×300 bei einem 1024×600-Target. Leistung: sehr hoch.">i</span></div><span class="value" id="renderScaleValue">0.50</span></div><input id="renderScale" type="range" min="0.30" max="0.80" step="0.01" value="0.50" /></div>
+    <div class="control" data-chip="renderScale">
+      <div class="row">
+        <div class="label"><span class="label-text">Render Scale</span><span class="info" data-tip="Stärkster FPS-Hebel. 0.50 ist ungefähr 512×300 bei 1024×600. Leistung: sehr hoch.">i</span></div>
+        <span class="value" id="renderScaleValue">0.50</span>
+      </div>
+      <input id="renderScale" type="range" min="0.30" max="0.80" step="0.01" value="0.50" />
+    </div>
 
-    <div class="actions"><button id="copyFrag">Copy .frag</button><button id="downloadFrag">Download .frag</button></div>
-    <div class="hint">Die exportierte <code>.frag</code> erwartet <code>uTime</code> als bereits im Host integrierte Zeit. Die weiche Speed-Übernahme bleibt deshalb Host-Logik und nicht Shader-Logik.</div>
+    <div class="section">Strand Positionen</div>
+    <div class="subhint">Ziehe die Kreuze im Viewport. Doppelklick auf ein Kreuz setzt es zurück.</div>
+    <div class="actions">
+      <button id="resetOffsets">Reset Offsets</button>
+    </div>
+
+    <div class="section">Macro Slider Bindings</div>
+    <div class="macro-toolbar">
+      <button id="addMacro">Add Macro Slider</button>
+    </div>
+    <div class="tiny">Ziehe die Chips unten auf einen Macro-Slider. Dann steuert der Macro-Slider alle gebundenen Regler gemeinsam.</div>
+    <div class="chip-list" id="chipList"></div>
+    <div class="macro-zone" id="macroZone"></div>
+
+    <div class="actions">
+      <button id="copyFrag">Copy .frag</button>
+      <button id="downloadFrag">Download .frag</button>
+    </div>
+
+    <div class="hint">
+      Exportiert werden alle shaderseitigen Uniforms und Offset-Werte. Nicht exportiert wird nur die Host-Logik:
+      Speed/Curl-Dämpfung, Makro-Bindings, Drag-and-Drop und Render-Scale.
+    </div>
   </div>
 
   <div class="fps">
-    <div><strong>FPS</strong></div>
-    <div>Instant: <span id="fpsInstant">0.0</span></div>
-    <div>Avg: <span id="fpsAvg">0.0</span></div>
+    <div><strong>Performance</strong></div>
+    <div>Instant FPS: <span id="fpsInstant">0.0</span></div>
+    <div>Avg FPS: <span id="fpsAvg">0.0</span></div>
+    <div>Frame ms: <span id="frameMs">0.0</span></div>
     <div>Internal: <span id="fpsRes">512×300</span></div>
     <div>Applied speed: <span id="fpsSpeed">1.00</span></div>
+    <div>Applied curl count: <span id="fpsCurlCount">2.00</span></div>
+    <div>Load estimate: <span id="loadEstimate">0</span>/100</div>
+    <div>Macro bindings: <span id="bindingCount">0</span></div>
   </div>
 
   <script>
     const BASE_W = 1024;
     const BASE_H = 600;
-    const canvas = document.getElementById("gl");
-    const gl = canvas.getContext("webgl", { antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false });
-    if (!gl) throw new Error("WebGL not supported");
 
-    const vertexSrc = `attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+    const PARAMS = {
+      density:           { min: 0.30, max: 1.80, step: 0.01, shader: true },
+      speed:             { min: 0.10, max: 2.40, step: 0.01, shader: false },
+      curl:              { min: 0.00, max: 2.00, step: 0.01, shader: true },
+      curlSize:          { min: 0.50, max: 1.80, step: 0.01, shader: true },
+      curlCount:         { min: 0.00, max: 6.00, step: 1.00, shader: true },
+      curlDynamics:      { min: 0.00, max: 2.00, step: 0.01, shader: true },
+      turbulence:        { min: 0.00, max: 2.20, step: 0.01, shader: true },
+      spread:            { min: 0.35, max: 2.20, step: 0.01, shader: true },
+      softness:          { min: 0.40, max: 2.20, step: 0.01, shader: true },
+      edge:              { min: 0.20, max: 2.40, step: 0.01, shader: true },
+      edgeSharpness:     { min: 0.40, max: 2.80, step: 0.01, shader: true },
+      edgeGradient:      { min: 0.00, max: 1.00, step: 0.01, shader: true },
+      edgeUpper:         { min: 0.00, max: 2.40, step: 0.01, shader: true },
+      edgeLower:         { min: 0.00, max: 2.40, step: 0.01, shader: true },
+      edgeBreakCount:    { min: 0.00, max: 8.00, step: 1.00, shader: true },
+      edgeBreakStrength: { min: 0.00, max: 1.40, step: 0.01, shader: true },
+      edgeBreakSoftness: { min: 0.20, max: 3.00, step: 0.01, shader: true },
+      redness:           { min: 0.00, max: 1.00, step: 0.01, shader: true },
+      renderScale:       { min: 0.30, max: 0.80, step: 0.01, shader: false },
+    };
+
+    const canvas = document.getElementById("gl");
+    const overlay = document.getElementById("overlay");
+    const gl = canvas.getContext("webgl", {
+      antialias: false, alpha: false, depth: false, stencil: false, preserveDrawingBuffer: false,
+    });
+
+    if (!gl) {
+      alert("WebGL wird in diesem Browser nicht unterstützt.");
+      throw new Error("WebGL not supported");
+    }
+
+    const vertexSrc = `
+      attribute vec2 aPosition;
+      void main() {
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+    `;
 
     function buildFrag(forFlutter = false) {
       const header = forFlutter
@@ -104,20 +422,29 @@
 precision mediump float;
 out vec4 fragColor;
 
-uniform vec2 uResolution;    // 0,1
-uniform float uTime;         // 2
-uniform float uDensity;      // 3
-uniform float uCurl;         // 4
-uniform float uTurbulence;   // 5
-uniform float uEdge;         // 6
-uniform float uSoftness;     // 7
-uniform float uSpread;       // 8
-uniform float uRedness;      // 9
-uniform float uCurlSize;     // 10
-uniform float uCurlCount;    // 11
-uniform float uCurlDynamics; // 12
-uniform float uEdgeUpper;    // 13
-uniform float uEdgeLower;    // 14
+uniform vec2 uResolution;         // 0,1
+uniform float uTime;              // 2  (integrated host time)
+uniform float uDensity;           // 3
+uniform float uCurl;              // 4
+uniform float uTurbulence;        // 5
+uniform float uEdge;              // 6
+uniform float uSoftness;          // 7
+uniform float uSpread;            // 8
+uniform float uRedness;           // 9
+uniform float uCurlSize;          // 10
+uniform float uCurlCount;         // 11
+uniform float uCurlDynamics;      // 12
+uniform float uEdgeUpper;         // 13
+uniform float uEdgeLower;         // 14
+uniform float uEdgeSharpness;     // 15
+uniform float uEdgeGradient;      // 16
+uniform float uEdgeBreakCount;    // 17
+uniform float uEdgeBreakStrength; // 18
+uniform float uEdgeBreakSoftness; // 19
+uniform vec2 uOff1;               // 20,21
+uniform vec2 uOff2;               // 22,23
+uniform vec2 uOff3;               // 24,25
+uniform vec2 uOff4;               // 26,27
 `
 : `precision mediump float;
 
@@ -135,205 +462,703 @@ uniform float uCurlCount;
 uniform float uCurlDynamics;
 uniform float uEdgeUpper;
 uniform float uEdgeLower;
+uniform float uEdgeSharpness;
+uniform float uEdgeGradient;
+uniform float uEdgeBreakCount;
+uniform float uEdgeBreakStrength;
+uniform float uEdgeBreakSoftness;
+uniform vec2 uOff1;
+uniform vec2 uOff2;
+uniform vec2 uOff3;
+uniform vec2 uOff4;
 `;
       const fragCoordLine = forFlutter ? `vec2 fragCoord = FlutterFragCoord().xy;` : `vec2 fragCoord = gl_FragCoord.xy;`;
       const outLine = forFlutter ? `fragColor = vec4(col, 1.0);` : `gl_FragColor = vec4(col, 1.0);`;
+
       return `${header}
-float hash21(vec2 p){ p = fract(p * vec2(0.1031, 0.11369)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
-float noise(vec2 p){ vec2 i=floor(p); vec2 f=fract(p); f=f*f*(3.0-2.0*f); float a=hash21(i); float b=hash21(i+vec2(1.0,0.0)); float c=hash21(i+vec2(0.0,1.0)); float d=hash21(i+vec2(1.0,1.0)); return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }
-float n2(vec2 p){ float a=noise(p); float b=noise(p*2.03+vec2(7.1,3.4)); return mix(a,b,0.35); }
-mat2 rot(float a){ float s=sin(a); float c=cos(a); return mat2(c,-s,s,c); }
-vec2 swirl(vec2 p, vec2 center, float radius, float strength){ vec2 d=p-center; float r=length(d); float w=1.0-smoothstep(radius*0.28,radius,r); float a=strength*w*(0.40+0.60*(1.0-clamp(r/radius,0.0,1.0))); d=rot(a)*d; return center+d; }
-vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbulence, float spread, float softness){
-  vec2 q=p-src; float x=q.x; if(x<=0.0) return vec3(0.0);
+float hash21(vec2 p) {
+  p = fract(p * vec2(0.1031, 0.11369));
+  p += dot(p, p.yx + 19.19);
+  return fract((p.x + p.y) * p.x);
+}
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float n2(vec2 p) {
+  float a = noise(p);
+  float b = noise(p * 2.03 + vec2(7.1, 3.4));
+  return mix(a, b, 0.35);
+}
+
+mat2 rot(float a) {
+  float s = sin(a);
+  float c = cos(a);
+  return mat2(c, -s, s, c);
+}
+
+vec2 swirl(vec2 p, vec2 center, float radius, float strength) {
+  vec2 d = p - center;
+  float r = length(d);
+  float w = 1.0 - smoothstep(radius * 0.28, radius, r);
+  float a = strength * w * (0.40 + 0.60 * (1.0 - clamp(r / radius, 0.0, 1.0)));
+  d = rot(a) * d;
+  return center + d;
+}
+
+float breakMask(float x, float seed) {
+  if (uEdgeBreakCount < 0.5 || uEdgeBreakStrength <= 0.001) return 0.0;
+
+  float m = 0.0;
+  float count = uEdgeBreakCount;
+  float baseWidth = mix(0.015, 0.055, clamp(uEdgeBreakStrength / 1.4, 0.0, 1.0));
+  float soft = mix(0.04, 0.22, clamp(uEdgeBreakSoftness / 3.0, 0.0, 1.0));
+
+  for (int i = 0; i < 8; i++) {
+    if (float(i) >= count) break;
+    float fi = float(i);
+    float center = 0.18 + (fi + 0.5) / max(count, 1.0) * 1.85;
+    center += sin(seed * 17.0 + fi * 7.1) * 0.06;
+    float d = abs(x - center);
+    float notch = 1.0 - smoothstep(baseWidth, baseWidth + soft, d);
+    m = max(m, notch);
+  }
+  return m;
+}
+
+vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbulence, float spread, float softness) {
+  vec2 q = p - src;
+  float x = q.x;
+  if (x <= 0.0) return vec3(0.0);
+
   q.y *= 1.0 / mix(1.0, 1.30, spread - 1.0);
-  float dyn=uCurlDynamics; float size=uCurlSize; float count=uCurlCount;
-  q = swirl(q, vec2(0.52+0.05*sin(t*0.21*dyn+seed*3.1), -0.03+0.04*sin(t*0.17*dyn+seed*1.4)), 0.16*size*mix(0.9,1.2,spread), 0.92*curl);
-  q = swirl(q, vec2(0.98+0.04*sin(t*0.15*dyn+seed*4.2), 0.04+0.03*sin(t*0.13*dyn+seed*2.4)), 0.14*size*mix(0.9,1.2,spread), -1.06*curl);
-  if(count>0.5) q = swirl(q, vec2(1.34+0.05*sin(t*0.11*dyn+seed*5.7), -0.02+0.025*sin(t*0.19*dyn+seed*1.8)), 0.12*size*mix(0.9,1.2,spread), 0.78*curl);
-  if(count>1.5) q = swirl(q, vec2(0.74+0.05*sin(t*0.16*dyn+seed*6.1), 0.10+0.025*sin(t*0.12*dyn+seed*3.4)), 0.11*size*mix(0.9,1.2,spread), -0.72*curl);
-  if(count>2.5) q = swirl(q, vec2(1.62+0.04*sin(t*0.10*dyn+seed*8.0), 0.03+0.02*sin(t*0.09*dyn+seed*2.7)), 0.10*size*mix(0.9,1.2,spread), 0.58*curl);
-  float centerLine = -0.14*x + 0.055*sin(x*1.45+t*0.29+seed*10.0) + 0.018*sin(x*4.4-t*0.37+seed*16.0) + (n2(vec2(x*0.72+seed*2.0,-t*0.03))-0.5)*0.030*turbulence;
-  float y=q.y-centerLine; float ad=abs(y);
-  float w=mix(0.018,0.072,smoothstep(0.0,1.52,x)); w*=mix(0.88,1.20,softness); w*=mix(0.86,1.28,spread);
-  float body=1.0-smoothstep(w*0.14,w*0.88,ad);
-  float veil=1.0-smoothstep(w*0.88,w*2.45,ad);
-  float upperBand=smoothstep(w*0.16,w*0.50,y)*(1.0-smoothstep(w*0.68,w*1.04,y));
-  float lowerBand=smoothstep(w*0.16,w*0.50,-y)*(1.0-smoothstep(w*0.68,w*1.04,-y));
-  float edgeNoiseUpper=n2(vec2(x*1.30-t*0.04+seed*8.0,y*7.2+seed*3.4)); edgeNoiseUpper=smoothstep(0.34,0.90,edgeNoiseUpper);
-  float edgeNoiseLower=n2(vec2(x*1.15+t*0.03+seed*4.8,y*6.1-seed*1.7)); edgeNoiseLower=smoothstep(0.32,0.90,edgeNoiseLower);
-  float bodyNoise=n2(vec2(x*1.10+seed*5.0,y*4.8-t*0.02)); bodyNoise=smoothstep(0.20,0.88,bodyNoise);
-  float upperEdge=upperBand*edgeNoiseUpper*uEdgeUpper;
-  float lowerEdge=lowerBand*edgeNoiseLower*uEdgeLower;
-  float edgeMix=upperEdge+lowerEdge;
-  float fade=smoothstep(0.0,0.08,x); fade*=1.0-smoothstep(1.42,2.30,x); fade*=1.0-smoothstep(0.80,1.34,p.y);
-  float density=(body*0.25+veil*0.11+edgeMix*0.32)*bodyNoise*fade;
-  float edgeWeight=edgeMix*fade;
-  float mist=veil*0.08*fade;
-  return vec3(density,edgeWeight,mist);
+
+  float dyn = uCurlDynamics;
+  float size = uCurlSize;
+  float count = uCurlCount;
+
+  q = swirl(q, vec2(0.52 + 0.05 * sin(t * 0.21 * dyn + seed * 3.1), -0.03 + 0.04 * sin(t * 0.17 * dyn + seed * 1.4)), 0.16 * size * mix(0.9, 1.2, spread), 0.92 * curl);
+  q = swirl(q, vec2(0.98 + 0.04 * sin(t * 0.15 * dyn + seed * 4.2), 0.04 + 0.03 * sin(t * 0.13 * dyn + seed * 2.4)), 0.14 * size * mix(0.9, 1.2, spread), -1.06 * curl);
+
+  if (count > 0.5) {
+    q = swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, spread), 0.78 * curl);
+  }
+  if (count > 1.5) {
+    q = swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, spread), -0.72 * curl);
+  }
+  if (count > 2.5) {
+    q = swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, spread), 0.58 * curl);
+  }
+  if (count > 3.5) {
+    q = swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, spread), -0.46 * curl);
+  }
+  if (count > 4.5) {
+    q = swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, spread), 0.52 * curl);
+  }
+  if (count > 5.5) {
+    q = swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, spread), -0.38 * curl);
+  }
+
+  float centerLine =
+      -0.14 * x
+    + 0.055 * sin(x * 1.45 + t * 0.29 + seed * 10.0)
+    + 0.018 * sin(x * 4.4 - t * 0.37 + seed * 16.0)
+    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.040 * turbulence;
+
+  float y = q.y - centerLine;
+  float ad = abs(y);
+
+  float w = mix(0.018, 0.072, smoothstep(0.0, 1.52, x));
+  w *= mix(0.82, 1.34, softness);
+  w *= mix(0.80, 1.34, spread);
+
+  float body = 1.0 - smoothstep(w * 0.10, w * 0.92, ad);
+  float veil = 1.0 - smoothstep(w * 0.92, w * 2.60, ad);
+
+  float sharp = mix(0.55, 1.95, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));
+  float upperInner = mix(0.08, 0.30, sharp);
+  float upperOuter = mix(0.55, 0.92, sharp);
+  float lowerInner = mix(0.08, 0.30, sharp);
+  float lowerOuter = mix(0.55, 0.92, sharp);
+
+  float upperBand = smoothstep(w * upperInner, w * upperInner + w * 0.28, y) * (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));
+  float lowerBand = smoothstep(w * lowerInner, w * lowerInner + w * 0.28, -y) * (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));
+
+  float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));
+  edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);
+  float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));
+  edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);
+
+  float grad = clamp((x / 2.15) + (uEdgeGradient - 0.5), 0.0, 1.0);
+  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);
+  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);
+
+  float breaksUpper = breakMask(x, seed + 0.31);
+  float breaksLower = breakMask(x, seed + 1.73);
+
+  float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));
+  bodyNoise = smoothstep(0.20, 0.88, bodyNoise);
+
+  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breaksUpper * uEdgeBreakStrength);
+  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breaksLower * uEdgeBreakStrength);
+  float edgeMix = upperEdge + lowerEdge;
+
+  float fade = smoothstep(0.0, 0.08, x);
+  fade *= 1.0 - smoothstep(1.42, 2.30, x);
+  fade *= 1.0 - smoothstep(0.80, 1.34, p.y);
+
+  float density = (body * 0.25 + veil * 0.11 + edgeMix * 0.45) * bodyNoise * fade;
+  float edgeWeight = edgeMix * fade;
+  float mist = veil * 0.08 * fade;
+
+  return vec3(density, edgeWeight, mist);
 }
-vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float turbulence, float spread, float softness){
-  vec2 pp=p; pp.x*=-side;
-  float s2=smoothstep(0.45,0.82,densityCtrl); float s3=smoothstep(0.82,1.18,densityCtrl); float s4=smoothstep(1.18,1.55,densityCtrl);
-  float localSpread=mix(0.90,1.34,smoothstep(0.50,1.55,densityCtrl))*spread;
-  float localSoft=mix(0.92,1.18,smoothstep(0.45,1.55,densityCtrl))*softness;
-  vec3 a=strandEval(pp, vec2(-1.04,-0.10), t, 0.19+side*0.11, curl, turbulence, localSpread, localSoft);
-  vec3 b=strandEval(pp+vec2(0.0,0.03), vec2(-1.08,0.00), t*0.96+2.6, 0.57+side*0.07, curl, turbulence, localSpread, localSoft);
-  vec3 c=strandEval(pp+vec2(0.0,-0.04), vec2(-1.11,0.09), t*1.03+4.1, 0.91+side*0.05, curl*1.02, turbulence, localSpread, localSoft);
-  vec3 d=strandEval(pp+vec2(0.0,0.06), vec2(-1.14,-0.18), t*0.90+6.7, 1.29+side*0.09, curl*0.92, turbulence, localSpread, localSoft);
-  float density=a.x+b.x*s2+c.x*s3+d.x*s4; float edge=a.y+b.y*s2+c.y*s3+d.y*s4; float mist=a.z+b.z*s2+c.z*s3+d.z*s4; return vec3(density,edge,mist);
+
+vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float turbulence, float spread, float softness) {
+  vec2 pp = p;
+  pp.x *= -side;
+
+  float s2 = smoothstep(0.45, 0.82, densityCtrl);
+  float s3 = smoothstep(0.82, 1.18, densityCtrl);
+  float s4 = smoothstep(1.18, 1.55, densityCtrl);
+
+  float localSpread = mix(0.90, 1.34, smoothstep(0.50, 1.55, densityCtrl)) * spread;
+  float localSoft = mix(0.92, 1.18, smoothstep(0.45, 1.55, densityCtrl)) * softness;
+
+  vec3 a = strandEval(pp - uOff1 * vec2(-side, 1.0),                     vec2(-1.04, -0.10), t,            0.19 + side * 0.11, curl, turbulence, localSpread, localSoft);
+  vec3 b = strandEval(pp + vec2(0.0, 0.03) - uOff2 * vec2(-side, 1.0),   vec2(-1.08,  0.00), t * 0.96 + 2.6, 0.57 + side * 0.07, curl, turbulence, localSpread, localSoft);
+  vec3 c = strandEval(pp + vec2(0.0, -0.04) - uOff3 * vec2(-side, 1.0),  vec2(-1.11,  0.09), t * 1.03 + 4.1, 0.91 + side * 0.05, curl * 1.02, turbulence, localSpread, localSoft);
+  vec3 d = strandEval(pp + vec2(0.0, 0.06) - uOff4 * vec2(-side, 1.0),   vec2(-1.14, -0.18), t * 0.90 + 6.7, 1.29 + side * 0.09, curl * 0.92, turbulence, localSpread, localSoft);
+
+  float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;
+  float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;
+  float mist = a.z + b.z * s2 + c.z * s3 + d.z * s4;
+  return vec3(density, edge, mist);
 }
-void main(){
+
+void main() {
   ${fragCoordLine}
-  vec2 uv=fragCoord/uResolution; vec2 p=(fragCoord-0.5*uResolution)/uResolution.y; float t=uTime;
-  vec3 bg=mix(vec3(0.028,0.030,0.034), vec3(0.11,0.11,0.11), smoothstep(-0.82,0.92,p.y));
+  vec2 uv = fragCoord / uResolution;
+  vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;
+  float t = uTime;
+
+  vec3 bg = mix(vec3(0.028, 0.030, 0.034), vec3(0.11, 0.11, 0.11), smoothstep(-0.82, 0.92, p.y));
   bg += 0.040 * exp(-2.4 * dot(p - vec2(-0.34, 0.02), p - vec2(-0.34, 0.02)));
   bg += 0.012 * exp(-4.0 * dot(p - vec2(0.18, 0.10), p - vec2(0.18, 0.10)));
-  vec3 left=smokeSide(p,-1.0,t,uDensity,uCurl,uTurbulence,uSpread,uSoftness);
-  vec3 right=smokeSide(p,1.0,t+1.1,uDensity,uCurl,uTurbulence,uSpread,uSoftness);
-  float density=left.x+right.x; float edge=left.y+right.y; float mist=left.z+right.z;
-  float alpha=1.0-exp(-(density+mist*0.55)*1.12); alpha=clamp(alpha,0.0,0.82);
-  float edgeRatio=clamp(edge/max(density+mist*0.4,0.0001),0.0,1.0); edgeRatio*=mix(0.55,1.45,clamp(uEdge*0.5,0.0,1.0)); edgeRatio=clamp(edgeRatio,0.0,1.0);
-  float toneNoise=n2(vec2(p.x*1.9+1.1,p.y*2.6-t*0.02)); float tone=mix(0.78,0.92,toneNoise);
-  vec3 neutralBodyA=vec3(0.50,0.52,0.56); vec3 neutralBodyB=vec3(0.74,0.76,0.79); vec3 neutralEdge=vec3(0.94,0.95,0.96);
-  vec3 redBodyA=vec3(0.28,0.04,0.03); vec3 redBodyB=vec3(0.70,0.12,0.08); vec3 redEdge=vec3(0.98,0.27,0.18);
-  vec3 bodyColor=mix(neutralBodyA,neutralBodyB,tone); vec3 edgeColor=neutralEdge;
-  vec3 redBody=mix(redBodyA,redBodyB,tone); vec3 redEdgeColor=redEdge;
-  bodyColor=mix(bodyColor,redBody,uRedness); edgeColor=mix(edgeColor,redEdgeColor,uRedness);
-  vec3 smokeColor=mix(bodyColor,edgeColor,edgeRatio);
-  vec3 col=mix(bg,smokeColor,alpha);
-  float vignette=smoothstep(1.24,0.28,length(uv-0.5)); col*=vignette;
+
+  vec3 left  = smokeSide(p, -1.0, t,       uDensity, uCurl, uTurbulence, uSpread, uSoftness);
+  vec3 right = smokeSide(p,  1.0, t + 1.1, uDensity, uCurl, uTurbulence, uSpread, uSoftness);
+
+  float density = left.x + right.x;
+  float edge = left.y + right.y;
+  float mist = left.z + right.z;
+
+  float alpha = 1.0 - exp(-(density + mist * 0.55) * 1.12);
+  alpha = clamp(alpha, 0.0, 0.82);
+
+  float edgeRatio = clamp(edge / max(density + mist * 0.4, 0.0001), 0.0, 1.0);
+  edgeRatio *= mix(0.45, 1.80, clamp((uEdge - 0.2) / 2.2, 0.0, 1.0));
+  edgeRatio = clamp(edgeRatio, 0.0, 1.0);
+
+  float toneNoise = n2(vec2(p.x * 1.9 + 1.1, p.y * 2.6 - t * 0.02));
+  float tone = mix(0.78, 0.92, toneNoise);
+
+  vec3 neutralBodyA = vec3(0.50, 0.52, 0.56);
+  vec3 neutralBodyB = vec3(0.74, 0.76, 0.79);
+  vec3 neutralEdge  = vec3(0.94, 0.95, 0.96);
+
+  vec3 redBodyA = vec3(0.28, 0.04, 0.03);
+  vec3 redBodyB = vec3(0.70, 0.12, 0.08);
+  vec3 redEdge  = vec3(0.98, 0.27, 0.18);
+
+  vec3 bodyColor = mix(neutralBodyA, neutralBodyB, tone);
+  vec3 edgeColor = neutralEdge;
+
+  vec3 redBody = mix(redBodyA, redBodyB, tone);
+  vec3 redEdgeColor = redEdge;
+
+  bodyColor = mix(bodyColor, redBody, uRedness);
+  edgeColor = mix(edgeColor, redEdgeColor, uRedness);
+
+  vec3 smokeColor = mix(bodyColor, edgeColor, edgeRatio);
+
+  vec3 col = mix(bg, smokeColor, alpha);
+
+  float vignette = smoothstep(1.24, 0.28, length(uv - 0.5));
+  col *= vignette;
+
   ${outLine}
 }`;
     }
 
-    function createShader(gl, type, source){ const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ const info=gl.getShaderInfoLog(s); gl.deleteShader(s); throw new Error(info);} return s; }
-    function createProgram(gl, vsSource, fsSource){ const vs=createShader(gl, gl.VERTEX_SHADER, vsSource); const fs=createShader(gl, gl.FRAGMENT_SHADER, fsSource); const p=gl.createProgram(); gl.attachShader(p,vs); gl.attachShader(p,fs); gl.linkProgram(p); if(!gl.getProgramParameter(p, gl.LINK_STATUS)){ const info=gl.getProgramInfoLog(p); gl.deleteProgram(p); throw new Error(info);} return p; }
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const info = gl.getShaderInfoLog(shader);
+        gl.deleteShader(shader);
+        throw new Error(info);
+      }
+      return shader;
+    }
+
+    function createProgram(gl, vsSource, fsSource) {
+      const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+      const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        const info = gl.getProgramInfoLog(p);
+        gl.deleteProgram(p);
+        throw new Error(info);
+      }
+      return p;
+    }
 
     const program = createProgram(gl, vertexSrc, buildFrag(false));
     gl.useProgram(program);
 
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1,  1, 1, -1,  1, 1
+    ]), gl.STATIC_DRAW);
+
     const aPosition = gl.getAttribLocation(program, "aPosition");
     gl.enableVertexAttribArray(aPosition);
     gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
 
-    const uResolution = gl.getUniformLocation(program, "uResolution");
-    const uTime = gl.getUniformLocation(program, "uTime");
-    const uDensity = gl.getUniformLocation(program, "uDensity");
-    const uCurl = gl.getUniformLocation(program, "uCurl");
-    const uTurbulence = gl.getUniformLocation(program, "uTurbulence");
-    const uEdge = gl.getUniformLocation(program, "uEdge");
-    const uSoftness = gl.getUniformLocation(program, "uSoftness");
-    const uSpread = gl.getUniformLocation(program, "uSpread");
-    const uRedness = gl.getUniformLocation(program, "uRedness");
-    const uCurlSize = gl.getUniformLocation(program, "uCurlSize");
-    const uCurlCount = gl.getUniformLocation(program, "uCurlCount");
-    const uCurlDynamics = gl.getUniformLocation(program, "uCurlDynamics");
-    const uEdgeUpper = gl.getUniformLocation(program, "uEdgeUpper");
-    const uEdgeLower = gl.getUniformLocation(program, "uEdgeLower");
-
-    const controls = {
-      density: document.getElementById("density"), speed: document.getElementById("speed"), curl: document.getElementById("curl"), curlSize: document.getElementById("curlSize"), curlCount: document.getElementById("curlCount"), curlDynamics: document.getElementById("curlDynamics"), turbulence: document.getElementById("turbulence"), edge: document.getElementById("edge"), edgeUpper: document.getElementById("edgeUpper"), edgeLower: document.getElementById("edgeLower"), softness: document.getElementById("softness"), spread: document.getElementById("spread"), redness: document.getElementById("redness"), renderScale: document.getElementById("renderScale")
+    const uniforms = {
+      uResolution: gl.getUniformLocation(program, "uResolution"),
+      uTime: gl.getUniformLocation(program, "uTime"),
+      uDensity: gl.getUniformLocation(program, "uDensity"),
+      uCurl: gl.getUniformLocation(program, "uCurl"),
+      uTurbulence: gl.getUniformLocation(program, "uTurbulence"),
+      uEdge: gl.getUniformLocation(program, "uEdge"),
+      uSoftness: gl.getUniformLocation(program, "uSoftness"),
+      uSpread: gl.getUniformLocation(program, "uSpread"),
+      uRedness: gl.getUniformLocation(program, "uRedness"),
+      uCurlSize: gl.getUniformLocation(program, "uCurlSize"),
+      uCurlCount: gl.getUniformLocation(program, "uCurlCount"),
+      uCurlDynamics: gl.getUniformLocation(program, "uCurlDynamics"),
+      uEdgeUpper: gl.getUniformLocation(program, "uEdgeUpper"),
+      uEdgeLower: gl.getUniformLocation(program, "uEdgeLower"),
+      uEdgeSharpness: gl.getUniformLocation(program, "uEdgeSharpness"),
+      uEdgeGradient: gl.getUniformLocation(program, "uEdgeGradient"),
+      uEdgeBreakCount: gl.getUniformLocation(program, "uEdgeBreakCount"),
+      uEdgeBreakStrength: gl.getUniformLocation(program, "uEdgeBreakStrength"),
+      uEdgeBreakSoftness: gl.getUniformLocation(program, "uEdgeBreakSoftness"),
+      uOff1: gl.getUniformLocation(program, "uOff1"),
+      uOff2: gl.getUniformLocation(program, "uOff2"),
+      uOff3: gl.getUniformLocation(program, "uOff3"),
+      uOff4: gl.getUniformLocation(program, "uOff4"),
     };
-    const values = {
-      density: document.getElementById("densityValue"), speed: document.getElementById("speedValue"), curl: document.getElementById("curlValue"), curlSize: document.getElementById("curlSizeValue"), curlCount: document.getElementById("curlCountValue"), curlDynamics: document.getElementById("curlDynamicsValue"), turbulence: document.getElementById("turbulenceValue"), edge: document.getElementById("edgeValue"), edgeUpper: document.getElementById("edgeUpperValue"), edgeLower: document.getElementById("edgeLowerValue"), softness: document.getElementById("softnessValue"), spread: document.getElementById("spreadValue"), redness: document.getElementById("rednessValue"), renderScale: document.getElementById("renderScaleValue")
-    };
 
-    const speedHint = document.getElementById("speedHint");
+    const controls = {};
+    const values = {};
+    Object.keys(PARAMS).forEach(name => {
+      controls[name] = document.getElementById(name);
+      values[name] = document.getElementById(name + "Value");
+    });
+
     const fpsInstantEl = document.getElementById("fpsInstant");
     const fpsAvgEl = document.getElementById("fpsAvg");
+    const frameMsEl = document.getElementById("frameMs");
     const fpsResEl = document.getElementById("fpsRes");
     const fpsSpeedEl = document.getElementById("fpsSpeed");
+    const fpsCurlCountEl = document.getElementById("fpsCurlCount");
+    const loadEstimateEl = document.getElementById("loadEstimate");
+    const bindingCountEl = document.getElementById("bindingCount");
+    const speedHint = document.getElementById("speedHint");
+    const curlCountHint = document.getElementById("curlCountHint");
+    const curlDynamicsHint = document.getElementById("curlDynamicsHint");
 
-    let density = parseFloat(controls.density.value);
-    let speedPending = parseFloat(controls.speed.value);
-    let speedTarget = speedPending;
-    let speedCurrent = speedPending;
-    let curl = parseFloat(controls.curl.value);
-    let curlSize = parseFloat(controls.curlSize.value);
-    let curlCount = parseFloat(controls.curlCount.value);
-    let curlDynamics = parseFloat(controls.curlDynamics.value);
-    let turbulence = parseFloat(controls.turbulence.value);
-    let edge = parseFloat(controls.edge.value);
-    let edgeUpper = parseFloat(controls.edgeUpper.value);
-    let edgeLower = parseFloat(controls.edgeLower.value);
-    let softness = parseFloat(controls.softness.value);
-    let spread = parseFloat(controls.spread.value);
-    let redness = parseFloat(controls.redness.value);
-    let renderScale = parseFloat(controls.renderScale.value);
+    const state = {};
+    Object.keys(PARAMS).forEach(name => {
+      const init = parseFloat(controls[name].value);
+      state[name] = { target: init, applied: init, pending: init };
+    });
 
-    function updateLabels(){
-      values.density.textContent = density.toFixed(2);
-      values.speed.textContent = speedPending.toFixed(2);
-      values.curl.textContent = curl.toFixed(2);
-      values.curlSize.textContent = curlSize.toFixed(2);
-      values.curlCount.textContent = String(Math.round(curlCount));
-      values.curlDynamics.textContent = curlDynamics.toFixed(2);
-      values.turbulence.textContent = turbulence.toFixed(2);
-      values.edge.textContent = edge.toFixed(2);
-      values.edgeUpper.textContent = edgeUpper.toFixed(2);
-      values.edgeLower.textContent = edgeLower.toFixed(2);
-      values.softness.textContent = softness.toFixed(2);
-      values.spread.textContent = spread.toFixed(2);
-      values.redness.textContent = redness.toFixed(2);
-      values.renderScale.textContent = renderScale.toFixed(2);
-      speedHint.textContent = `pending ${speedPending.toFixed(2)} · applied ${speedCurrent.toFixed(2)}`;
+    state.speed.target = state.speed.applied = state.speed.pending;
+    state.curlCount.target = state.curlCount.applied = state.curlCount.pending;
+    state.curlDynamics.target = state.curlDynamics.applied = state.curlDynamics.pending;
+
+    const smoothedOnCommit = new Set(["speed", "curlCount", "curlDynamics"]);
+    const liveSmoothed = new Set([
+      "density","curl","curlSize","turbulence","spread","softness","edge","edgeSharpness","edgeGradient",
+      "edgeUpper","edgeLower","edgeBreakCount","edgeBreakStrength","edgeBreakSoftness","redness"
+    ]);
+
+    const strandOffsets = [
+      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
+      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
+      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
+      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
+    ];
+
+    const crossBase = [
+      { x: 0.17, y: 0.56, label: "D1" },
+      { x: 0.28, y: 0.48, label: "D2" },
+      { x: 0.38, y: 0.42, label: "D3" },
+      { x: 0.48, y: 0.36, label: "D4" },
+    ];
+
+    const crosses = [];
+
+    function updateLabels() {
+      Object.keys(PARAMS).forEach(name => {
+        const v = smoothedOnCommit.has(name) ? state[name].pending : state[name].target;
+        values[name].textContent = name === "curlCount" || name === "edgeBreakCount"
+          ? v.toFixed(0)
+          : v.toFixed(2);
+      });
+      speedHint.textContent = `pending ${state.speed.pending.toFixed(2)} · applied ${state.speed.applied.toFixed(2)}`;
+      curlCountHint.textContent = `pending ${state.curlCount.pending.toFixed(0)} · applied ${state.curlCount.applied.toFixed(2)}`;
+      curlDynamicsHint.textContent = `pending ${state.curlDynamics.pending.toFixed(2)} · applied ${state.curlDynamics.applied.toFixed(2)}`;
     }
 
-    controls.density.addEventListener("input", ()=>{ density=parseFloat(controls.density.value); updateLabels();});
-    controls.curl.addEventListener("input", ()=>{ curl=parseFloat(controls.curl.value); updateLabels();});
-    controls.curlSize.addEventListener("input", ()=>{ curlSize=parseFloat(controls.curlSize.value); updateLabels();});
-    controls.curlCount.addEventListener("input", ()=>{ curlCount=parseFloat(controls.curlCount.value); updateLabels();});
-    controls.curlDynamics.addEventListener("input", ()=>{ curlDynamics=parseFloat(controls.curlDynamics.value); updateLabels();});
-    controls.turbulence.addEventListener("input", ()=>{ turbulence=parseFloat(controls.turbulence.value); updateLabels();});
-    controls.edge.addEventListener("input", ()=>{ edge=parseFloat(controls.edge.value); updateLabels();});
-    controls.edgeUpper.addEventListener("input", ()=>{ edgeUpper=parseFloat(controls.edgeUpper.value); updateLabels();});
-    controls.edgeLower.addEventListener("input", ()=>{ edgeLower=parseFloat(controls.edgeLower.value); updateLabels();});
-    controls.softness.addEventListener("input", ()=>{ softness=parseFloat(controls.softness.value); updateLabels();});
-    controls.spread.addEventListener("input", ()=>{ spread=parseFloat(controls.spread.value); updateLabels();});
-    controls.redness.addEventListener("input", ()=>{ redness=parseFloat(controls.redness.value); updateLabels();});
-    controls.renderScale.addEventListener("input", ()=>{ renderScale=parseFloat(controls.renderScale.value); resize(); updateLabels();});
+    function setControlTarget(name, value, commit = false) {
+      const p = PARAMS[name];
+      const clamped = Math.min(p.max, Math.max(p.min, value));
+      const slider = controls[name];
+      slider.value = clamped;
+      if (smoothedOnCommit.has(name)) {
+        state[name].pending = clamped;
+        if (commit) state[name].target = clamped;
+      } else {
+        state[name].target = clamped;
+      }
+      if (name === "renderScale") resize();
+      updateLabels();
+    }
 
-    function commitSpeed(){ speedTarget = speedPending; updateLabels(); }
-    controls.speed.addEventListener("input", ()=>{ speedPending=parseFloat(controls.speed.value); updateLabels();});
-    controls.speed.addEventListener("change", commitSpeed);
-    controls.speed.addEventListener("pointerup", commitSpeed);
-    controls.speed.addEventListener("touchend", commitSpeed);
+    Object.keys(PARAMS).forEach(name => {
+      if (name === "renderScale") {
+        controls[name].addEventListener("input", () => {
+          state[name].target = parseFloat(controls[name].value);
+          resize();
+          updateLabels();
+        });
+        return;
+      }
 
-    document.getElementById("copyFrag").addEventListener("click", async ()=>{ try { await navigator.clipboard.writeText(buildFrag(true)); } catch(e){ console.error(e);} });
-    document.getElementById("downloadFrag").addEventListener("click", ()=>{ const src=buildFrag(true); const blob=new Blob([src], {type:"text/plain;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="natural_edge_smoke_lr_advanced.frag"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); });
+      if (smoothedOnCommit.has(name)) {
+        controls[name].addEventListener("input", () => {
+          state[name].pending = parseFloat(controls[name].value);
+          updateLabels();
+        });
+        const commit = () => { state[name].target = state[name].pending; updateLabels(); };
+        controls[name].addEventListener("change", commit);
+        controls[name].addEventListener("pointerup", commit);
+        controls[name].addEventListener("touchend", commit);
+      } else {
+        controls[name].addEventListener("input", () => {
+          state[name].target = parseFloat(controls[name].value);
+          updateLabels();
+        });
+      }
+    });
 
-    let internalW = 512, internalH = 300;
-    function resize(){ internalW=Math.max(1, Math.round(BASE_W * renderScale)); internalH=Math.max(1, Math.round(BASE_H * renderScale)); canvas.width=internalW; canvas.height=internalH; gl.viewport(0,0,internalW,internalH); fpsResEl.textContent=`${internalW}×${internalH}`; }
+    // overlay crosses
+    function createCrosses() {
+      overlay.innerHTML = "";
+      crosses.length = 0;
+      strandOffsets.forEach((off, i) => {
+        const el = document.createElement("div");
+        el.className = "cross";
+        el.dataset.index = i;
+        const label = document.createElement("div");
+        label.className = "cross-label";
+        label.textContent = crossBase[i].label;
+        el.appendChild(label);
+        overlay.appendChild(el);
+        crosses.push(el);
 
-    updateLabels(); resize();
-    let lastFrameTime = performance.now(); let fpsAvg = 0.0; let shaderTime = 0.0;
-    function render(now){
-      const dtMs=Math.max(0.0001, now-lastFrameTime); lastFrameTime=now; const dt=dtMs*0.001;
-      const ease=Math.min(1.0, dt*6.0); speedCurrent += (speedTarget-speedCurrent)*ease; shaderTime += dt*speedCurrent;
-      const fpsInstant=1000.0/dtMs; fpsAvg=fpsAvg===0.0?fpsInstant:fpsAvg*0.92+fpsInstant*0.08;
-      fpsInstantEl.textContent=fpsInstant.toFixed(1); fpsAvgEl.textContent=fpsAvg.toFixed(1); fpsSpeedEl.textContent=speedCurrent.toFixed(2); speedHint.textContent=`pending ${speedPending.toFixed(2)} · applied ${speedCurrent.toFixed(2)}`;
+        let dragging = false;
+        let moved = false;
+
+        const onMove = (clientX, clientY) => {
+          const rect = overlay.getBoundingClientRect();
+          const nx = (clientX - rect.left) / rect.width;
+          const ny = (clientY - rect.top) / rect.height;
+          const dx = (nx - crossBase[i].x) * 1.6;
+          const dy = (ny - crossBase[i].y) * 0.95;
+          off.x = Math.max(-0.8, Math.min(0.8, dx));
+          off.y = Math.max(-0.8, Math.min(0.8, dy));
+          layoutCrosses();
+        };
+
+        el.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          moved = false;
+          el.setPointerCapture(e.pointerId);
+          e.preventDefault();
+        });
+        el.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          moved = true;
+          onMove(e.clientX, e.clientY);
+        });
+        el.addEventListener("pointerup", () => {
+          dragging = false;
+        });
+        el.addEventListener("dblclick", () => {
+          off.x = 0.0; off.y = 0.0;
+          layoutCrosses();
+        });
+      });
+      layoutCrosses();
+    }
+
+    function layoutCrosses() {
+      const rect = overlay.getBoundingClientRect();
+      crosses.forEach((el, i) => {
+        const px = (crossBase[i].x + strandOffsets[i].x / 1.6) * rect.width;
+        const py = (crossBase[i].y + strandOffsets[i].y / 0.95) * rect.height;
+        el.style.left = px + "px";
+        el.style.top = py + "px";
+      });
+    }
+
+    document.getElementById("resetOffsets").addEventListener("click", () => {
+      strandOffsets.forEach(o => { o.x = 0; o.y = 0; });
+      layoutCrosses();
+    });
+
+    // Macro system
+    const chipList = document.getElementById("chipList");
+    const macroZone = document.getElementById("macroZone");
+    const addMacroBtn = document.getElementById("addMacro");
+    let macroId = 0;
+    const macros = [];
+
+    function createChip(name) {
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.draggable = true;
+      chip.dataset.param = name;
+      chip.textContent = name;
+      chip.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", name);
+      });
+      return chip;
+    }
+
+    Object.keys(PARAMS).forEach(name => {
+      if (name === "speed" || name === "renderScale" || name === "curlCount" || name === "curlDynamics" || PARAMS[name].shader) {
+        chipList.appendChild(createChip(name));
+      }
+    });
+
+    function updateBindingCount() {
+      const count = macros.reduce((acc, m) => acc + m.bindings.length, 0);
+      bindingCountEl.textContent = String(count);
+    }
+
+    function applyMacro(macro, value) {
+      macro.bindings.forEach(name => {
+        const p = PARAMS[name];
+        const mapped = p.min + value * (p.max - p.min);
+        setControlTarget(name, mapped, true);
+      });
+    }
+
+    function renderMacroBindings(macro) {
+      macro.drop.innerHTML = "";
+      if (!macro.bindings.length) {
+        macro.drop.innerHTML = '<span class="tiny">Drop controls here</span>';
+      } else {
+        macro.bindings.forEach(name => {
+          const chip = document.createElement("div");
+          chip.className = "bound-chip";
+          chip.innerHTML = `<span>${name}</span>`;
+          const btn = document.createElement("button");
+          btn.textContent = "×";
+          btn.addEventListener("click", () => {
+            macro.bindings = macro.bindings.filter(n => n !== name);
+            renderMacroBindings(macro);
+            updateBindingCount();
+          });
+          chip.appendChild(btn);
+          macro.drop.appendChild(chip);
+        });
+      }
+    }
+
+    function addMacro() {
+      const id = ++macroId;
+      const card = document.createElement("div");
+      card.className = "macro";
+
+      const header = document.createElement("div");
+      header.className = "macro-header";
+      header.innerHTML = `<strong>Macro ${id}</strong><span class="tiny">normalized 0–1</span>`;
+
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "0";
+      slider.max = "1";
+      slider.step = "0.01";
+      slider.value = "0.50";
+
+      const drop = document.createElement("div");
+      drop.className = "macro-drop";
+
+      card.appendChild(header);
+      card.appendChild(slider);
+      card.appendChild(drop);
+      macroZone.appendChild(card);
+
+      const macro = { id, card, slider, drop, bindings: [] };
+      macros.push(macro);
+
+      renderMacroBindings(macro);
+      updateBindingCount();
+
+      slider.addEventListener("input", () => {
+        applyMacro(macro, parseFloat(slider.value));
+      });
+
+      drop.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        drop.classList.add("dragover");
+      });
+      drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
+      drop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        drop.classList.remove("dragover");
+        const name = e.dataTransfer.getData("text/plain");
+        if (!name) return;
+        if (!macro.bindings.includes(name)) macro.bindings.push(name);
+        renderMacroBindings(macro);
+        updateBindingCount();
+      });
+    }
+
+    addMacroBtn.addEventListener("click", addMacro);
+    addMacro();
+
+    document.getElementById("copyFrag").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(buildFrag(true));
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    document.getElementById("downloadFrag").addEventListener("click", () => {
+      const src = buildFrag(true);
+      const blob = new Blob([src], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "natural_edge_smoke_lr_macro.frag";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    let internalW = 512;
+    let internalH = 300;
+    function resize() {
+      internalW = Math.max(1, Math.round(BASE_W * state.renderScale.target));
+      internalH = Math.max(1, Math.round(BASE_H * state.renderScale.target));
+      canvas.width = internalW;
+      canvas.height = internalH;
+      gl.viewport(0, 0, internalW, internalH);
+      fpsResEl.textContent = `${internalW}×${internalH}`;
+      requestAnimationFrame(layoutCrosses);
+    }
+
+    createCrosses();
+    updateLabels();
+    resize();
+    window.addEventListener("resize", () => { resize(); layoutCrosses(); });
+
+    let lastFrameTime = performance.now();
+    let fpsAvg = 0.0;
+    let shaderTime = 0.0;
+
+    function loadEstimate() {
+      let load = 0;
+      load += state.renderScale.target * 50.0;
+      load += (state.density.applied - 0.3) / 1.5 * 12.0;
+      load += state.curlCount.applied / 6.0 * 15.0;
+      load += state.turbulence.applied / 2.2 * 8.0;
+      load += state.edgeBreakCount.applied / 8.0 * 7.0;
+      load += state.curlDynamics.applied / 2.0 * 8.0;
+      return Math.round(Math.max(0, Math.min(100, load)));
+    }
+
+    function render(now) {
+      const dtMs = Math.max(0.0001, now - lastFrameTime);
+      lastFrameTime = now;
+      const dt = dtMs * 0.001;
+
+      Object.keys(PARAMS).forEach(name => {
+        if (name === "renderScale") return;
+        const ease = smoothedOnCommit.has(name) ? Math.min(1.0, dt * 6.0) : Math.min(1.0, dt * 10.0);
+        state[name].applied += (state[name].target - state[name].applied) * ease;
+      });
+
+      shaderTime += dt * state.speed.applied;
+
+      const fpsInstant = 1000.0 / dtMs;
+      fpsAvg = fpsAvg === 0.0 ? fpsInstant : fpsAvg * 0.92 + fpsInstant * 0.08;
+
+      fpsInstantEl.textContent = fpsInstant.toFixed(1);
+      fpsAvgEl.textContent = fpsAvg.toFixed(1);
+      frameMsEl.textContent = dtMs.toFixed(2);
+      fpsSpeedEl.textContent = state.speed.applied.toFixed(2);
+      fpsCurlCountEl.textContent = state.curlCount.applied.toFixed(2);
+      loadEstimateEl.textContent = String(loadEstimate());
+
+      speedHint.textContent = `pending ${state.speed.pending.toFixed(2)} · applied ${state.speed.applied.toFixed(2)}`;
+      curlCountHint.textContent = `pending ${state.curlCount.pending.toFixed(0)} · applied ${state.curlCount.applied.toFixed(2)}`;
+      curlDynamicsHint.textContent = `pending ${state.curlDynamics.pending.toFixed(2)} · applied ${state.curlDynamics.applied.toFixed(2)}`;
+
       gl.useProgram(program);
-      gl.uniform2f(uResolution, internalW, internalH);
-      gl.uniform1f(uTime, shaderTime);
-      gl.uniform1f(uDensity, density);
-      gl.uniform1f(uCurl, curl);
-      gl.uniform1f(uTurbulence, turbulence);
-      gl.uniform1f(uEdge, edge);
-      gl.uniform1f(uSoftness, softness);
-      gl.uniform1f(uSpread, spread);
-      gl.uniform1f(uRedness, redness);
-      gl.uniform1f(uCurlSize, curlSize);
-      gl.uniform1f(uCurlCount, curlCount);
-      gl.uniform1f(uCurlDynamics, curlDynamics);
-      gl.uniform1f(uEdgeUpper, edgeUpper);
-      gl.uniform1f(uEdgeLower, edgeLower);
+      gl.uniform2f(uniforms.uResolution, internalW, internalH);
+      gl.uniform1f(uniforms.uTime, shaderTime);
+      gl.uniform1f(uniforms.uDensity, state.density.applied);
+      gl.uniform1f(uniforms.uCurl, state.curl.applied);
+      gl.uniform1f(uniforms.uTurbulence, state.turbulence.applied);
+      gl.uniform1f(uniforms.uEdge, state.edge.applied);
+      gl.uniform1f(uniforms.uSoftness, state.softness.applied);
+      gl.uniform1f(uniforms.uSpread, state.spread.applied);
+      gl.uniform1f(uniforms.uRedness, state.redness.applied);
+      gl.uniform1f(uniforms.uCurlSize, state.curlSize.applied);
+      gl.uniform1f(uniforms.uCurlCount, state.curlCount.applied);
+      gl.uniform1f(uniforms.uCurlDynamics, state.curlDynamics.applied);
+      gl.uniform1f(uniforms.uEdgeUpper, state.edgeUpper.applied);
+      gl.uniform1f(uniforms.uEdgeLower, state.edgeLower.applied);
+      gl.uniform1f(uniforms.uEdgeSharpness, state.edgeSharpness.applied);
+      gl.uniform1f(uniforms.uEdgeGradient, state.edgeGradient.applied);
+      gl.uniform1f(uniforms.uEdgeBreakCount, state.edgeBreakCount.applied);
+      gl.uniform1f(uniforms.uEdgeBreakStrength, state.edgeBreakStrength.applied);
+      gl.uniform1f(uniforms.uEdgeBreakSoftness, state.edgeBreakSoftness.applied);
+      gl.uniform2f(uniforms.uOff1, strandOffsets[0].x, strandOffsets[0].y);
+      gl.uniform2f(uniforms.uOff2, strandOffsets[1].x, strandOffsets[1].y);
+      gl.uniform2f(uniforms.uOff3, strandOffsets[2].x, strandOffsets[2].y);
+      gl.uniform2f(uniforms.uOff4, strandOffsets[3].x, strandOffsets[3].y);
+
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       requestAnimationFrame(render);
     }
+
     requestAnimationFrame(render);
   </script>
 </body>
