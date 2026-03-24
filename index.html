@@ -686,6 +686,24 @@ void main() {
       speedSlider.addEventListener('pointerup', commit);
       speedSlider.addEventListener('touchend', commit);
 
+      const scaleWrap = document.createElement('div');
+      scaleWrap.className = 'control';
+      scaleWrap.innerHTML = `
+        <div class="row">
+          <div class="label"><span>renderScale</span><span class="info" data-tip="${infoTip('renderScale')}">i</span></div>
+          <span class="value">${runtime.renderScale.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.30" max="0.80" step="0.01" value="${runtime.renderScale}">
+      `;
+      controlsEl.appendChild(scaleWrap);
+      const scaleSlider = scaleWrap.querySelector('input');
+      const scaleValEl = scaleWrap.querySelector('.value');
+      scaleSlider.addEventListener('input', () => {
+        runtime.renderScale = parseFloat(scaleSlider.value);
+        scaleValEl.textContent = runtime.renderScale.toFixed(2);
+        resize();
+      });
+
       for (const [name, spec] of Object.entries(PARAM_SPECS)) {
         if (name === 'speed') continue;
         const wrap = document.createElement('div');
