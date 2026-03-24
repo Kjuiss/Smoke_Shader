@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smoke Macro Authoring Tool</title>
+  <title>Smoke Shader Authoring + Runtime Preview</title>
   <style>
     :root {
       --panel-bg: rgba(18,22,30,0.82);
@@ -11,159 +11,207 @@
       --text-dim: rgba(235,240,250,0.72);
     }
     html, body {
-      margin: 0; width: 100%; height: 100%; overflow: hidden;
-      background: #0a0d12; color: #e9edf5; font-family: Inter, system-ui, Arial, sans-serif;
+      margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000000; color: #e9edf5;
+      font-family: Inter, system-ui, Arial, sans-serif;
     }
-    .stage { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
-    #gl {
-      width: min(1024px, calc(100vw - 48px)); aspect-ratio: 1024 / 600;
-      display: block; border-radius: 18px; background: #0a0d12;
+    .app { position: fixed; inset: 0; display: grid; grid-template-columns: 450px 1fr; }
+    .sidebar {
+      overflow: auto; padding: 18px; background: rgba(10,13,18,0.92);
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .stage-wrap { position: relative; padding: 24px; display: grid; place-items: center; }
+    .tabbar { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tabbar button {
+      appearance: none; border: none; border-radius: 999px; padding: 8px 14px; cursor: pointer;
+      background: rgba(255,255,255,0.08); color: white;
+    }
+    .tabbar button.active { background: rgba(255,255,255,0.18); }
+    .panel {
+      border-radius: 18px; background: var(--panel-bg); border: 1px solid var(--panel-border);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+      padding: 16px 18px; margin-bottom: 14px;
+    }
+    h1 { font-size: 16px; margin: 0 0 8px; font-weight: 600; }
+    h2 { font-size: 12px; margin: 14px 0 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(235,240,250,0.62); }
+    .meta { font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+    .stage { position: relative; width: min(1024px, calc(100vw - 520px)); aspect-ratio: 1024 / 600; }
+    canvas {
+      width: 100%; height: 100%; display: block; border-radius: 18px; background: #000000;
       box-shadow: 0 20px 60px rgba(0,0,0,0.45);
     }
-    .overlay {
-      position: absolute; width: min(1024px, calc(100vw - 48px)); aspect-ratio: 1024 / 600; pointer-events: none;
-    }
+    .overlay { position: absolute; inset: 0; pointer-events: none; }
     .cross {
-      position: absolute; width: 26px; height: 26px; border-radius: 50%;
-      transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.6);
-      background: rgba(255,255,255,0.06); box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-      pointer-events: auto; cursor: grab; user-select: none;
+      position: absolute; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%);
+      border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.06);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35); pointer-events: auto; cursor: grab; user-select: none;
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
     .cross:before, .cross:after {
-      content:""; position:absolute; background:rgba(255,255,255,0.95);
-      left:50%; top:50%; transform:translate(-50%,-50%);
+      content: ""; position: absolute; background: rgba(255,255,255,0.95); left: 50%; top: 50%; transform: translate(-50%, -50%);
     }
     .cross:before { width: 12px; height: 1.6px; }
     .cross:after { width: 1.6px; height: 12px; }
     .cross-label {
-      position:absolute; left:50%; top:calc(100% + 6px); transform:translateX(-50%);
-      font-size:10px; color:rgba(255,255,255,0.85); white-space:nowrap;
-      text-shadow:0 1px 4px rgba(0,0,0,0.55); pointer-events:none;
-    }
-    .ui {
-      position: fixed; top: 20px; left: 20px; width: 430px; max-height: calc(100vh - 40px); overflow: auto;
-      padding: 16px 18px; border-radius: 18px; background: var(--panel-bg);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+      position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
+      font-size: 10px; color: rgba(255,255,255,0.85); white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.55); pointer-events: none;
     }
     .perf {
-      position: fixed; top: 20px; right: 20px; min-width: 225px;
-      padding: 10px 12px; border-radius: 14px; background: var(--panel-bg);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--panel-border); box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-      font-size: 12px; line-height: 1.5;
+      position: absolute; top: 20px; right: 20px; min-width: 220px; padding: 10px 12px; border-radius: 14px;
+      background: rgba(18,22,30,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 40px rgba(0,0,0,0.35); font-size: 12px; line-height: 1.5;
     }
-    h1 { font-size: 16px; margin: 0 0 10px; font-weight: 600; letter-spacing: 0.2px; }
-    .meta { margin: 0 0 14px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
-    .section { margin: 14px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(235,240,250,0.62); }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-green { background: rgba(60,130,60,0.22); color: #bff0bf; }
+    .status-green .status-dot { background: #69d36f; }
+    .status-yellow { background: rgba(150,120,35,0.24); color: #ffe7a8; }
+    .status-yellow .status-dot { background: #f0c14a; }
+    .status-red { background: rgba(150,45,45,0.24); color: #ffb4b4; }
+    .status-red .status-dot { background: #f06a6a; }
     .control { margin-bottom: 14px; }
-    .row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; color:#cfd6e6; }
-    .label { display:flex; align-items:center; gap:6px; }
-    .value { color:white; font-variant-numeric:tabular-nums; opacity:0.95; white-space:nowrap; }
-    input[type='range'] { width:100%; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.14); outline:none; }
-    input[type='range']::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.25); border:none; cursor:pointer; }
-    input[type='range']::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:white; border:none; cursor:pointer; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; color: #cfd6e6; }
+    .label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .value { color: #ffffff; font-variant-numeric: tabular-nums; opacity: 0.95; white-space: nowrap; }
+    input[type="range"] { width: 100%; appearance: none; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer; border: none; }
+    input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; cursor: pointer; border: none; }
     .info {
-      position:relative; width:16px; height:16px; border-radius:50%; display:inline-grid; place-items:center;
-      font-size:11px; font-weight:700; color:white; background:rgba(255,255,255,0.12); cursor:help;
+      position: relative; width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center;
+      font-size: 11px; font-weight: 700; color: white; background: rgba(255,255,255,0.12); cursor: help; flex: 0 0 16px;
     }
     .info:hover::after {
-      content: attr(data-tip); position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%);
-      width:220px; padding:9px 10px; border-radius:10px; background:rgba(10,12,18,0.96); color:#eef2fa;
-      border:1px solid rgba(255,255,255,0.10); box-shadow:0 10px 28px rgba(0,0,0,0.35);
-      font-size:11px; line-height:1.42; white-space:normal; z-index:50; pointer-events:none;
+      content: attr(data-tip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      width: 220px; padding: 9px 10px; border-radius: 10px; background: rgba(10,12,18,0.96); color: #eef2fa;
+      border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+      font-size: 11px; line-height: 1.42; white-space: normal; z-index: 50; pointer-events: none;
     }
-    .subhint { margin-top:-6px; margin-bottom:10px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.62); }
-    .actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
-    button { appearance:none; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:white; padding:10px 12px; font:inherit; cursor:pointer; }
-    button:hover { background:rgba(255,255,255,0.16); }
-    .hint { margin-top:10px; font-size:12px; line-height:1.45; color:var(--text-dim); }
-    .status-pill {
-      display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
-      font-weight:600; border:1px solid rgba(255,255,255,0.10);
+    .subhint { margin-top: -6px; margin-bottom: 10px; font-size: 11px; line-height: 1.4; color: rgba(235,240,250,0.62); }
+    .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button.action {
+      appearance: none; border: none; border-radius: 12px; background: rgba(255,255,255,0.10); color: white;
+      padding: 10px 12px; font: inherit; cursor: pointer;
     }
-    .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
-    .status-green { background:rgba(60,130,60,0.22); color:#bff0bf; }
-    .status-green .status-dot { background:#69d36f; }
-    .status-yellow { background:rgba(150,120,35,0.24); color:#ffe7a8; }
-    .status-yellow .status-dot { background:#f0c14a; }
-    .status-red { background:rgba(150,45,45,0.24); color:#ffb4b4; }
-    .status-red .status-dot { background:#f06a6a; }
-    .perf-note { margin-top:8px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.70); }
-    .macro { padding:12px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); margin-bottom:12px; }
-    .macro-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; }
-    .macro-drop { min-height:38px; padding:8px; border-radius:10px; border:1px dashed rgba(255,255,255,0.18); background:rgba(255,255,255,0.03); display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; margin-top:8px; }
-    .macro-drop.dragover { border-color:rgba(255,255,255,0.45); background:rgba(255,255,255,0.08); }
-    .chip-list { display:flex; flex-wrap:wrap; gap:6px; }
-    .chip, .binding { display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10); font-size:11px; }
-    .chip { cursor:grab; }
-    .binding input[type='range'] { width:70px; height:4px; }
-    .binding .mini { width:32px; text-align:right; font-size:10px; color:rgba(255,255,255,0.75); }
-    .binding button { padding:0; background:transparent; border:none; color:rgba(255,255,255,0.8); }
-    .tiny { font-size:11px; color:rgba(255,255,255,0.65); }
+    button.action:hover { background: rgba(255,255,255,0.16); }
+    .tiny { font-size: 11px; color: rgba(255,255,255,0.65); }
+    .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip, .binding {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 999px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); font-size: 11px;
+    }
+    .chip { cursor: grab; }
+    .macro { padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 12px; }
+    .macro-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+    .macro-drop {
+      min-height: 38px; padding: 8px; border-radius: 10px; border: 1px dashed rgba(255,255,255,0.18); background: rgba(255,255,255,0.03);
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; margin-top: 8px;
+    }
+    .macro-drop.dragover { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.08); }
+    .binding input[type="range"] { width: 70px; height: 4px; }
+    .binding .mini { width: 32px; text-align: right; font-size: 10px; color: rgba(255,255,255,0.75); }
+    .binding button { padding: 0; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer; }
+    .hidden { display: none; }
+    .log {
+      margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.06); font-size: 11px; line-height: 1.45; white-space: pre-wrap;
+      color: rgba(255,255,255,0.80); max-height: 160px; overflow: auto;
+    }
   </style>
 </head>
 <body>
-  <div class="stage">
-    <canvas id="gl"></canvas>
-    <div class="overlay" id="overlay"></div>
-  </div>
+  <div class="app">
+    <div class="sidebar">
+      <div class="tabbar">
+        <button id="tabAuthoring" class="active">Authoring</button>
+        <button id="tabRuntime">Flutter runtime preview</button>
+      </div>
 
-  <div class="ui">
-    <h1>Smoke Macro Authoring Tool</h1>
-    <div class="meta">
-      Ein gemeinsamer Exportshader für Flutter + Web-Vorschau. Die großen Detailregler bearbeiten die Basis-Konfiguration.
-      Darunter definierst du 3 Runtime-Makros mit Drag-and-Drop. Die Vorschau verwendet dieselbe Host-Mapping-Logik wie das Flutter-Projekt.
+      <div id="authoringPanel">
+        <div class="panel">
+          <h1>Authoring</h1>
+          <div class="meta">Große Basis-Regler, Offset-Kreuze und Makro-Mapping. Die Preview verwendet denselben Zielshader wie Flutter, nur über einen WebGL-Adapter. <strong>Curl Count</strong> und <strong>Curl Dynamics</strong> werden in der Authoring-Preview weich angefahren, damit sie beim Verstellen weniger springen.</div>
+          <h2>Base parameter authoring</h2>
+          <div id="authoringControls"></div>
+          <h2>Offsets</h2>
+          <div class="subhint">Ziehe D1–D4 im Viewport. Doppelklick setzt einzeln zurück.</div>
+          <div class="actions"><button class="action" id="resetOffsets">Reset offsets</button></div>
+        </div>
+
+        <div class="panel">
+          <h2>Macro mapping editor</h2>
+          <div class="tiny">Ziehe Parameter-Chips auf Macro 1–3. Influence bestimmt, wie stark der Runtime-Makro-Wert 0–100 den Basiswert verschiebt.</div>
+          <div class="chip-list" id="chipList"></div>
+          <div id="macroZone" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Export</h2>
+          <div class="actions">
+            <button class="action" id="saveLocal">Save lokal</button>
+            <button class="action" id="loadLocal">Load lokal</button>
+            <button class="action" id="downloadSavegame">Download savegame</button>
+            <button class="action" id="importSavegameBtn">Load savegame</button>
+            <button class="action" id="downloadConfig">Download smoke_config.json</button>
+            <button class="action" id="copyConfig">Copy config JSON</button>
+            <button class="action" id="downloadFrag">Download steam_safe.frag</button>
+            <button class="action" id="downloadHostNote">Download Flutter host note</button>
+          </div>
+          <input id="importSavegameInput" type="file" accept="application/json,.json" style="display:none;">
+          <div id="authoringLog" class="log">Compile log: waiting…</div>
+        </div>
+      </div>
+
+      <div id="runtimePanel" class="hidden">
+        <div class="panel">
+          <h1>Flutter runtime preview</h1>
+          <div class="meta">Diese Vorschau benutzt dieselbe Host-Mapping-Logik wie die mitgelieferte <code>main.dart</code>. Das ist kein echter Etnaviv-Emulator, aber der Flutter-Hostpfad wird hier realistisch nachgebildet. Makros und Geschwindigkeit werden weich geglättet.</div>
+          <div id="runtimeControls"></div>
+          <div class="subhint" id="runtimeHint">speed pending 1.00 · applied 1.00</div>
+          <div class="tiny" id="resolvedText">Resolved: waiting…</div>
+          <div id="runtimeLog" class="log">Compile log: waiting…</div>
+        </div>
+      </div>
     </div>
 
-    <div class="section">Runtime macro preview (0–100)</div>
-    <div id="runtimeMacros"></div>
-    <div class="subhint" id="speedHint">speed pending 1.00 · applied 1.00</div>
+    <div class="stage-wrap">
+      <div class="stage" id="authoringStage">
+        <canvas id="authoringCanvas"></canvas>
+        <div class="overlay" id="authoringOverlay"></div>
+        <div class="perf" id="authoringPerf">
+          <div><strong>Performance</strong></div>
+          <div>Instant FPS: <span id="aFpsInstant">0.0</span></div>
+          <div>Avg FPS: <span id="aFpsAvg">0.0</span></div>
+          <div>Frame ms: <span id="aFrameMs">0.0</span></div>
+          <div>Internal: <span id="aRes">512×300</span></div>
+          <div>Applied speed: <span id="aSpeed">1.00</span></div>
+          <div style="margin-top:8px;">Preview on this machine:</div>
+          <div><span id="aLiveStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+          <div style="margin-top:8px;">Embedded estimate:</div>
+          <div><span id="aEmbeddedStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+          <div>Estimated load: <span id="aEmbeddedLoad">0</span>/100</div>
+        </div>
+      </div>
 
-    <div class="section">Base parameter authoring</div>
-    <div id="controls"></div>
-
-    <div class="section">Macro mapping editor</div>
-    <div class="tiny">Ziehe Param-Chips auf Macro 1–3. Influence skaliert, wie stark der Makro-Slider den Parameter von seinem Basiswert aus verschiebt.</div>
-    <div class="chip-list" id="chipList" style="margin-top:8px;"></div>
-    <div id="macroZone"></div>
-
-    <div class="section">Offsets</div>
-    <div class="subhint">Ziehe die 4 Kreuze im Viewport. Doppelklick setzt einzeln zurück.</div>
-
-    <div class="actions">
-      <button id="resetOffsets">Reset Offsets</button>
-      <button id="downloadConfig">Download smoke_config.json</button>
-      <button id="copyConfig">Copy config JSON</button>
-      <button id="downloadFrag">Download steam_safe.frag</button>
-      <button id="downloadHostNote">Download host note</button>
+      <div class="stage hidden" id="runtimeStage">
+        <canvas id="runtimeCanvas"></canvas>
+        <div class="perf" id="runtimePerf">
+          <div><strong>Runtime preview</strong></div>
+          <div>Instant FPS: <span id="rFpsInstant">0.0</span></div>
+          <div>Avg FPS: <span id="rFpsAvg">0.0</span></div>
+          <div>Frame ms: <span id="rFrameMs">0.0</span></div>
+          <div>Internal: <span id="rRes">512×300</span></div>
+          <div>Applied speed: <span id="rSpeed">1.00</span></div>
+          <div>Applied macros: <span id="rMacros">0 / 0 / 0</span></div>
+        </div>
+      </div>
     </div>
-
-    <div class="hint">Die HTML previewt denselben Flutter-Shader über einen kleinen WebGL-Adapter. Exportiert werden Shader und JSON-Konfiguration; Makro-/Speed-Smoothing bleibt Host-Logik.</div>
-  </div>
-
-  <div class="perf">
-    <div><strong>Performance</strong></div>
-    <div>Instant FPS: <span id="fpsInstant">0.0</span></div>
-    <div>Avg FPS: <span id="fpsAvg">0.0</span></div>
-    <div>Frame ms: <span id="frameMs">0.0</span></div>
-    <div>Internal: <span id="fpsRes">512×300</span></div>
-    <div>Applied speed: <span id="fpsSpeed">1.00</span></div>
-    <div>Macro 1/2/3: <span id="perfMacros">0 / 0 / 0</span></div>
-    <div>Bindings: <span id="bindingCount">0</span></div>
-    <div style="margin-top:8px;">Preview on this machine:</div>
-    <div><span id="liveStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
-    <div style="margin-top:8px;">Embedded estimate (Cortex + dedizierte OpenGL2 GPU):</div>
-    <div><span id="embeddedStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
-    <div>Estimated load: <span id="embeddedLoad">0</span>/100</div>
-    <div class="perf-note" id="perfNote">Grün = sehr wahrscheinlich unkritisch, Gelb = beobachten/testen, Rot = riskant für dein Zielsystem.</div>
   </div>
 
   <script>
-    const PARAM_SPECS = {"density": {"min": 0.3, "max": 1.8, "step": 0.01}, "speed": {"min": 0.1, "max": 2.4, "step": 0.01}, "curl": {"min": 0.0, "max": 2.0, "step": 0.01}, "curlSize": {"min": 0.5, "max": 1.8, "step": 0.01}, "curlCount": {"min": 0.0, "max": 6.0, "step": 1.0}, "curlDynamics": {"min": 0.0, "max": 2.0, "step": 0.01}, "turbulence": {"min": 0.0, "max": 2.2, "step": 0.01}, "edge": {"min": 0.2, "max": 2.4, "step": 0.01}, "edgeUpper": {"min": 0.0, "max": 2.4, "step": 0.01}, "edgeLower": {"min": 0.0, "max": 2.4, "step": 0.01}, "edgeSharpness": {"min": 0.4, "max": 2.8, "step": 0.01}, "edgeGradient": {"min": 0.0, "max": 1.0, "step": 0.01}, "edgeBreakCount": {"min": 0.0, "max": 8.0, "step": 1.0}, "edgeBreakStrength": {"min": 0.0, "max": 1.4, "step": 0.01}, "edgeBreakSoftness": {"min": 0.2, "max": 3.0, "step": 0.01}, "softness": {"min": 0.4, "max": 2.2, "step": 0.01}, "spread": {"min": 0.35, "max": 2.2, "step": 0.01}, "redness": {"min": 0.0, "max": 1.0, "step": 0.01}, "edgeUpperThin": {"min": 0.15, "max": 2.0, "step": 0.01}, "edgeLowerThin": {"min": 0.15, "max": 2.0, "step": 0.01}};
-    const DEFAULT_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "curlSize": 1.0, "curlCount": 2.0, "curlDynamics": 1.0, "turbulence": 1.0, "edge": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0, "softness": 1.0, "spread": 1.0, "redness": 0.0, "edgeUpperThin": 1.0, "edgeLowerThin": 1.0}, "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "redness": 0.75, "edgeUpperThin": -0.25, "edgeLowerThin": -0.25}}]};
+    const PARAM_SPECS = {"density": {"min": 0.3, "max": 1.8, "step": 0.01, "tip": "Mehr Rauch schaltet zus\u00e4tzliche Fahnen und mehr Volumen zu."}, "speed": {"min": 0.1, "max": 2.4, "step": 0.01, "tip": "Wird host-seitig gegl\u00e4ttet. Der Shader bekommt nur integrierte Zeit."}, "curl": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Grundst\u00e4rke der Wirbel."}, "curlSize": {"min": 0.5, "max": 1.8, "step": 0.01, "tip": "Gr\u00f6\u00dfe der Wirbelradien."}, "curlCount": {"min": 0.0, "max": 6.0, "step": 1.0, "tip": "Zus\u00e4tzliche feste Wirbelstationen. H\u00f6her = mehr Detail."}, "curlDynamics": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Zeitliche Lebendigkeit der Wirbelpositionen."}, "turbulence": {"min": 0.0, "max": 2.2, "step": 0.01, "tip": "Feinere Unruhe in Kontur und K\u00f6rper."}, "edge": {"min": 0.2, "max": 2.4, "step": 0.01, "tip": "Gesamte Kantenbetonung."}, "edgeUpper": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Obere Kante separat."}, "edgeLower": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Untere Kante separat."}, "edgeUpperThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die obere Kante d\u00fcnner oder breiter."}, "edgeLowerThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die untere Kante d\u00fcnner oder breiter."}, "edgeSharpness": {"min": 0.4, "max": 2.8, "step": 0.01, "tip": "Sch\u00e4rfe/Pr\u00e4gnanz der Edge-B\u00e4nder."}, "edgeGradient": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "Verlauf der Kantenbetonung entlang der Fahne."}, "edgeBreakCount": {"min": 0.0, "max": 8.0, "step": 1.0, "tip": "Anzahl der Edge-Unterbrechungen."}, "edgeBreakStrength": {"min": 0.0, "max": 1.4, "step": 0.01, "tip": "Wie tief Breaks in die Kante schneiden."}, "edgeBreakSoftness": {"min": 0.2, "max": 3.0, "step": 0.01, "tip": "Wie weich/lang Breaks auslaufen."}, "softness": {"min": 0.4, "max": 2.2, "step": 0.01, "tip": "Breiterer, milchigerer K\u00f6rper."}, "spread": {"min": 0.35, "max": 2.2, "step": 0.01, "tip": "\u00d6ffnet die Fahnen im Raum."}, "redness": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "Echte rote Rauchpalette."}, "renderScale": {"min": 0.30, "max": 1.00, "step": 0.01, "tip": "Interne Shader-Auflösung relativ zu 1024×600. 1.00 entspricht voller Zielauflösung 1024×600."}};
+    const DEFAULT_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "curlSize": 1.08, "curlCount": 2.0, "curlDynamics": 1.0, "turbulence": 1.0, "edge": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeUpperThin": 1.0, "edgeLowerThin": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0, "softness": 1.05, "spread": 1.06, "redness": 0.0}, "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "redness": 0.75, "edgeUpperThin": 0.22, "edgeLowerThin": 0.22}}]};
     const FLUTTER_FRAG = `#version 460 core
 #include <flutter/runtime_effect.glsl>
 
@@ -185,17 +233,17 @@ uniform float uEdgeLower;          // 11
 uniform float uEdgeUpperThin;      // 12
 uniform float uEdgeLowerThin;      // 13
 uniform float uEdgeSharpness;      // 14
-uniform float uEdgeGradient;       // 13
-uniform float uEdgeBreakCount;     // 14
-uniform float uEdgeBreakStrength;  // 15
-uniform float uEdgeBreakSoftness;  // 16
-uniform float uSoftness;           // 17
-uniform float uSpread;             // 18
-uniform float uRedness;            // 19
-uniform vec2 uOff1;                // 20,21
-uniform vec2 uOff2;                // 22,23
-uniform vec2 uOff3;                // 24,25
-uniform vec2 uOff4;                // 26,27
+uniform float uEdgeGradient;       // 15
+uniform float uEdgeBreakCount;     // 16
+uniform float uEdgeBreakStrength;  // 17
+uniform float uEdgeBreakSoftness;  // 18
+uniform float uSoftness;           // 19
+uniform float uSpread;             // 20
+uniform float uRedness;            // 21
+uniform vec2 uOff1;                // 22,23
+uniform vec2 uOff2;                // 24,25
+uniform vec2 uOff3;                // 26,27
+uniform vec2 uOff4;                // 28,29
 
 float hash21(vec2 p) {
   p = fract(p * vec2(0.1031, 0.11369));
@@ -257,108 +305,111 @@ vec3 strandEval(
   vec2 src,
   vec2 off,
   float t,
-  float seed,
-  float curl,
-  float curlSize,
-  float curlCount,
-  float curlDynamics,
-  float turbulence,
-  float spread,
-  float softness,
-  float edgeUpper,
-  float edgeLower,
-  float edgeUpperThin,
-  float edgeLowerThin,
-  float edgeSharpness,
-  float edgeGradient,
-  float edgeBreakCount,
-  float edgeBreakStrength,
-  float edgeBreakSoftness
+  float seed
 ) {
   vec2 q = p - src - off;
   float x = q.x;
   if (x <= 0.0) return vec3(0.0);
 
-  q.y *= 1.0 / mix(1.0, 1.32, clamp(spread - 1.0, -0.5, 1.2));
+  q.y *= 1.0 / mix(1.0, 1.32, clamp(uSpread - 1.0, -0.5, 1.2));
 
-  float dyn = max(0.001, curlDynamics);
-  float size = curlSize;
+  float dyn = max(0.001, uCurlDynamics);
+  float size = uCurlSize;
+  float seedA = fract(seed * 3.71);
+  float seedB = fract(seed * 5.13 + 0.17);
+  float posVar = clamp(length(off) * 1.35, 0.0, 1.0);
+  float sizeVarA = mix(0.84, 1.28, seedA);
+  float sizeVarB = mix(0.82, 1.24, seedB);
+  float curlVarA = mix(0.82, 1.18, seedA);
+  float curlVarB = mix(0.78, 1.22, seedB);
 
   q = swirl(
     q,
-    vec2(0.52 + 0.05 * sin(t * 0.21 * dyn + seed * 3.1), -0.03 + 0.04 * sin(t * 0.17 * dyn + seed * 1.4)),
-    0.16 * size * mix(0.9, 1.2, spread),
-    0.92 * curl
+    vec2(
+      0.50 + 0.08 * sin(t * 0.21 * dyn + seed * 3.1) + (seedA - 0.5) * 0.10,
+      -0.04 + 0.05 * sin(t * 0.17 * dyn + seed * 1.4) + (seedB - 0.5) * 0.08
+    ),
+    0.18 * size * sizeVarA * mix(0.95, 1.28, uSpread) * mix(1.0, 1.12, posVar),
+    0.98 * uCurl * curlVarA
   );
   q = swirl(
     q,
-    vec2(0.98 + 0.04 * sin(t * 0.15 * dyn + seed * 4.2), 0.04 + 0.03 * sin(t * 0.13 * dyn + seed * 2.4)),
-    0.14 * size * mix(0.9, 1.2, spread),
-    -1.06 * curl
+    vec2(
+      0.96 + 0.06 * sin(t * 0.15 * dyn + seed * 4.2) + (seedB - 0.5) * 0.12,
+      0.05 + 0.04 * sin(t * 0.13 * dyn + seed * 2.4) - (seedA - 0.5) * 0.08
+    ),
+    0.16 * size * sizeVarB * mix(0.95, 1.28, uSpread),
+    -1.10 * uCurl * curlVarB
   );
 
-  float c1 = step(0.5, curlCount);
-  float c2 = step(1.5, curlCount);
-  float c3 = step(2.5, curlCount);
-  float c4 = step(3.5, curlCount);
-  float c5 = step(4.5, curlCount);
-  float c6 = step(5.5, curlCount);
+  q.y += (n2(vec2(x * 0.58 + seed * 4.1, t * 0.09 + seed * 2.3)) - 0.5) * 0.055 * uTurbulence;
 
-  q = mix(q, swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, spread), 0.78 * curl), c1);
-  q = mix(q, swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, spread), -0.72 * curl), c2);
-  q = mix(q, swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, spread), 0.58 * curl), c3);
-  q = mix(q, swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, spread), -0.46 * curl), c4);
-  q = mix(q, swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, spread), 0.52 * curl), c5);
-  q = mix(q, swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, spread), -0.38 * curl), c6);
+  float c1 = step(0.5, uCurlCount);
+  float c2 = step(1.5, uCurlCount);
+  float c3 = step(2.5, uCurlCount);
+  float c4 = step(3.5, uCurlCount);
+  float c5 = step(4.5, uCurlCount);
+  float c6 = step(5.5, uCurlCount);
+
+  q = mix(q, swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, uSpread), 0.78 * uCurl), c1);
+  q = mix(q, swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, uSpread), -0.72 * uCurl), c2);
+  q = mix(q, swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, uSpread), 0.58 * uCurl), c3);
+  q = mix(q, swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, uSpread), -0.46 * uCurl), c4);
+  q = mix(q, swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, uSpread), 0.52 * uCurl), c5);
+  q = mix(q, swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, uSpread), -0.38 * uCurl), c6);
 
   float centerLine =
       -0.14 * x
-    + 0.055 * sin(x * 1.45 + t * 0.29 + seed * 10.0)
-    + 0.018 * sin(x * 4.4 - t * 0.37 + seed * 16.0)
-    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.040 * turbulence;
+    + 0.060 * sin(x * (1.30 + seedA * 0.40) + t * 0.29 + seed * 10.0)
+    + 0.024 * sin(x * (4.0 + seedB * 1.1) - t * 0.37 + seed * 16.0)
+    + 0.010 * sin(x * 7.5 + seed * 21.0 + t * 0.11)
+    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.048 * uTurbulence;
 
   float y = q.y - centerLine;
   float ad = abs(y);
 
-  float w = mix(0.018, 0.072, smoothstep(0.0, 1.52, x));
-  w *= mix(0.80, 1.36, clamp((softness - 0.4) / 1.8, 0.0, 1.0));
-  w *= mix(0.82, 1.34, clamp((spread - 0.35) / 1.85, 0.0, 1.0));
+  float w = mix(0.024, 0.096, smoothstep(0.0, 1.52, x));
+  w *= mix(0.86, 1.52, clamp((uSoftness - 0.4) / 1.8, 0.0, 1.0));
+  w *= mix(0.88, 1.46, clamp((uSpread - 0.35) / 1.85, 0.0, 1.0));
+  w *= mix(0.92, 1.18, sizeVarA) * mix(1.0, 1.08, posVar);
 
-  float body = 1.0 - smoothstep(w * 0.10, w * 0.92, ad);
-  float veil = 1.0 - smoothstep(w * 0.92, w * 2.60, ad);
+  float body = 1.0 - smoothstep(w * 0.08, w * 1.02, ad);
+  float veil = 1.0 - smoothstep(w * 1.02, w * 2.95, ad);
 
-  float sharp = mix(0.40, 2.10, clamp((edgeSharpness - 0.4) / 2.4, 0.0, 1.0));
-  float bandInner = mix(0.10, 0.32, sharp);
-  float bandOuter = mix(0.48, 0.90, sharp);
+  float sharp = mix(0.40, 2.10, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));
+  float upperThin = mix(1.55, 0.55, clamp((uEdgeUpperThin - 0.3) / 1.9, 0.0, 1.0));
+  float lowerThin = mix(1.55, 0.55, clamp((uEdgeLowerThin - 0.3) / 1.9, 0.0, 1.0));
 
-  float upperThin = mix(0.22, 1.90, clamp((edgeUpperThin - 0.15) / 1.85, 0.0, 1.0));
-  float lowerThin = mix(0.22, 1.90, clamp((edgeLowerThin - 0.15) / 1.85, 0.0, 1.0));
+  float upperInner = mix(0.10, 0.32, sharp) * upperThin;
+  float upperOuter = mix(0.48, 0.90, sharp) * upperThin;
+  float lowerInner = mix(0.10, 0.32, sharp) * lowerThin;
+  float lowerOuter = mix(0.48, 0.90, sharp) * lowerThin;
 
   float upperBand =
-      smoothstep(w * bandInner * upperThin, w * (bandInner * upperThin + 0.14 * upperThin), y) *
-      (1.0 - smoothstep(w * bandOuter * upperThin, w * (bandOuter * upperThin + 0.11 * upperThin), y));
+      smoothstep(w * upperInner, w * (upperInner + 0.20), y) *
+      (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));
 
   float lowerBand =
-      smoothstep(w * bandInner * lowerThin, w * (bandInner * lowerThin + 0.14 * lowerThin), -y) *
-      (1.0 - smoothstep(w * bandOuter * lowerThin, w * (bandOuter * lowerThin + 0.11 * lowerThin), -y));
+      smoothstep(w * lowerInner, w * (lowerInner + 0.20), -y) *
+      (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));
 
   float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));
   edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);
   float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));
   edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);
 
-  float grad = clamp((x / 2.10) + (edgeGradient - 0.5), 0.0, 1.0);
-  float upperWeight = mix(edgeUpper, edgeLower, grad);
-  float lowerWeight = mix(edgeLower, edgeUpper, grad);
+  float grad = clamp((x / 2.10) + (uEdgeGradient - 0.5), 0.0, 1.0);
+  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);
+  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);
 
-  float breakU = edgeBreakMask(x, seed + 0.31, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
-  float breakL = edgeBreakMask(x, seed + 1.73, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  float breakU = edgeBreakMask(x, seed + 0.31, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
+  float breakL = edgeBreakMask(x, seed + 1.73, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
 
   float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));
   bodyNoise = smoothstep(0.20, 0.88, bodyNoise);
 
-  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breakU * edgeBreakStrength);
-  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breakL * edgeBreakStrength);
+  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breakU * uEdgeBreakStrength);
+  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breakL * uEdgeBreakStrength);
   float edgeMix = upperEdge + lowerEdge;
 
   float fade = smoothstep(0.0, 0.08, x);
@@ -371,42 +422,18 @@ vec3 strandEval(
   return vec3(density, edgeWeight, mist);
 }
 
-vec3 smokeSide(
-  vec2 p,
-  float side,
-  float t,
-  float densityCtrl,
-  float curl,
-  float curlSize,
-  float curlCount,
-  float curlDynamics,
-  float turbulence,
-  float spread,
-  float softness,
-  float edgeUpper,
-  float edgeLower,
-  float edgeUpperThin,
-  float edgeLowerThin,
-  float edgeSharpness,
-  float edgeGradient,
-  float edgeBreakCount,
-  float edgeBreakStrength,
-  float edgeBreakSoftness
-) {
+vec3 smokeSide(vec2 p, float side, float t) {
   vec2 pp = p;
   pp.x *= -side;
 
-  float s2 = smoothstep(0.45, 0.82, densityCtrl);
-  float s3 = smoothstep(0.82, 1.18, densityCtrl);
-  float s4 = smoothstep(1.18, 1.55, densityCtrl);
+  float s2 = smoothstep(0.45, 0.82, uDensity);
+  float s3 = smoothstep(0.82, 1.18, uDensity);
+  float s4 = smoothstep(1.18, 1.55, uDensity);
 
-  float localSpread = mix(0.90, 1.34, smoothstep(0.50, 1.55, densityCtrl)) * spread;
-  float localSoft = mix(0.92, 1.18, smoothstep(0.45, 1.55, densityCtrl)) * softness;
-
-  vec3 a = strandEval(pp,                     vec2(-1.04, -0.10), uOff1 * vec2(-side, 1.0), t,            0.19 + side * 0.11, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
-  vec3 b = strandEval(pp + vec2(0.0, 0.03),  vec2(-1.08,  0.00), uOff2 * vec2(-side, 1.0), t * 0.96 + 2.6, 0.57 + side * 0.07, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
-  vec3 c = strandEval(pp + vec2(0.0, -0.04), vec2(-1.11,  0.09), uOff3 * vec2(-side, 1.0), t * 1.03 + 4.1, 0.91 + side * 0.05, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
-  vec3 d = strandEval(pp + vec2(0.0, 0.06),  vec2(-1.14, -0.18), uOff4 * vec2(-side, 1.0), t * 0.90 + 6.7, 1.29 + side * 0.09, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  vec3 a = strandEval(pp,                     vec2(-1.04, -0.10), uOff1 * vec2(-side, 1.0), t,            0.19 + side * 0.11);
+  vec3 b = strandEval(pp + vec2(0.0, 0.03),  vec2(-1.08,  0.00), uOff2 * vec2(-side, 1.0), t * 0.96 + 2.6, 0.57 + side * 0.07);
+  vec3 c = strandEval(pp + vec2(0.0, -0.04), vec2(-1.11,  0.09), uOff3 * vec2(-side, 1.0), t * 1.03 + 4.1, 0.91 + side * 0.05);
+  vec3 d = strandEval(pp + vec2(0.0, 0.06),  vec2(-1.14, -0.18), uOff4 * vec2(-side, 1.0), t * 0.90 + 6.7, 1.29 + side * 0.09);
 
   float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;
   float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;
@@ -420,16 +447,10 @@ void main() {
   vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;
   float t = uTime;
 
-  vec3 bg = mix(
-    vec3(0.028, 0.030, 0.034),
-    vec3(0.11, 0.11, 0.11),
-    smoothstep(-0.82, 0.92, p.y)
-  );
-  bg += 0.040 * exp(-2.4 * dot(p - vec2(-0.34, 0.02), p - vec2(-0.34, 0.02)));
-  bg += 0.012 * exp(-4.0 * dot(p - vec2(0.18, 0.10), p - vec2(0.18, 0.10)));
+  vec3 bg = vec3(0.0, 0.0, 0.0);
 
-  vec3 left  = smokeSide(p, -1.0, t,       uDensity, uCurl, uCurlSize, uCurlCount, uCurlDynamics, uTurbulence, uSpread, uSoftness, uEdgeUpper, uEdgeLower, uEdgeUpperThin, uEdgeLowerThin, uEdgeSharpness, uEdgeGradient, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
-  vec3 right = smokeSide(p,  1.0, t + 1.1, uDensity, uCurl, uCurlSize, uCurlCount, uCurlDynamics, uTurbulence, uSpread, uSoftness, uEdgeUpper, uEdgeLower, uEdgeUpperThin, uEdgeLowerThin, uEdgeSharpness, uEdgeGradient, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
+  vec3 left  = smokeSide(p, -1.0, t);
+  vec3 right = smokeSide(p,  1.0, t + 1.1);
 
   float density = left.x + right.x;
   float edge = left.y + right.y;
@@ -469,7 +490,6 @@ void main() {
   fragColor = vec4(col, 1.0);
 }
 `;
-
     function adaptFlutterToWeb(src) {
       return src
         .replace('#version 460 core\n#include <flutter/runtime_effect.glsl>\n\n', '')
@@ -479,499 +499,253 @@ void main() {
     }
 
     const WEB_FRAG = adaptFlutterToWeb(FLUTTER_FRAG);
-    const canvas = document.getElementById('gl');
-    const overlay = document.getElementById('overlay');
-    const gl = canvas.getContext('webgl', { antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false });
-    if (!gl) throw new Error('WebGL not supported');
 
-    const vertexSrc = `attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+    window.addEventListener('error', (e) => {
+      const msg = 'JS error: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
+      const a = document.getElementById('authoringLog');
+      const r = document.getElementById('runtimeLog');
+      if (a) a.textContent = msg;
+      if (r) r.textContent = msg;
+    });
 
-    function createShader(gl, type, src) {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-      return s;
-    }
-    function createProgram(gl, vs, fs) {
+    function compileProgram(gl, fragSrc) {
+      const log = [];
+      function make(type, src) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(s) || 'Unknown shader compile error';
+          log.push(info);
+          throw new Error(info);
+        }
+        return s;
+      }
+      const vs = make(gl.VERTEX_SHADER, 'attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition,0.0,1.0); }');
+      const fs = make(gl.FRAGMENT_SHADER, fragSrc);
       const p = gl.createProgram();
-      gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vs));
-      gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fs));
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
       gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-      return p;
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        const info = gl.getProgramInfoLog(p) || 'Unknown program link error';
+        log.push(info);
+        throw new Error(info);
+      }
+      return { program: p, log: log.join('\n') || 'Shader compiled successfully.' };
     }
-    const program = createProgram(gl, vertexSrc, WEB_FRAG);
-    gl.useProgram(program);
 
-    const quad = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1,-1, 1,-1, -1,1,
-      -1,1, 1,-1, 1,1
-    ]), gl.STATIC_DRAW);
-    const aPosition = gl.getAttribLocation(program, 'aPosition');
-    gl.enableVertexAttribArray(aPosition);
-    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+    function createRenderer(canvas, logEl, perfPrefix) {
+      const gl = canvas.getContext('webgl', {
+        antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false
+      });
+      if (!gl) {
+        logEl.textContent = 'WebGL not supported.';
+        throw new Error('WebGL not supported');
+      }
+      let build;
+      try {
+        build = compileProgram(gl, WEB_FRAG);
+      } catch (e) {
+        logEl.textContent = 'Compile failed:\n' + e.message;
+        throw e;
+      }
+      logEl.textContent = build.log;
+      gl.useProgram(build.program);
 
-    const u = {
-      res: gl.getUniformLocation(program,'uResolution'),
-      time: gl.getUniformLocation(program,'uTime'),
-      density: gl.getUniformLocation(program,'uDensity'),
-      curl: gl.getUniformLocation(program,'uCurl'),
-      curlSize: gl.getUniformLocation(program,'uCurlSize'),
-      curlCount: gl.getUniformLocation(program,'uCurlCount'),
-      curlDynamics: gl.getUniformLocation(program,'uCurlDynamics'),
-      turbulence: gl.getUniformLocation(program,'uTurbulence'),
-      edge: gl.getUniformLocation(program,'uEdge'),
-      edgeUpper: gl.getUniformLocation(program,'uEdgeUpper'),
-      edgeLower: gl.getUniformLocation(program,'uEdgeLower'),
-      edgeUpperThin: gl.getUniformLocation(program,'uEdgeUpperThin'),
-      edgeLowerThin: gl.getUniformLocation(program,'uEdgeLowerThin'),
-      edgeSharpness: gl.getUniformLocation(program,'uEdgeSharpness'),
-      edgeGradient: gl.getUniformLocation(program,'uEdgeGradient'),
-      edgeBreakCount: gl.getUniformLocation(program,'uEdgeBreakCount'),
-      edgeBreakStrength: gl.getUniformLocation(program,'uEdgeBreakStrength'),
-      edgeBreakSoftness: gl.getUniformLocation(program,'uEdgeBreakSoftness'),
-      softness: gl.getUniformLocation(program,'uSoftness'),
-      spread: gl.getUniformLocation(program,'uSpread'),
-      redness: gl.getUniformLocation(program,'uRedness'),
-      off1: gl.getUniformLocation(program,'uOff1'),
-      off2: gl.getUniformLocation(program,'uOff2'),
-      off3: gl.getUniformLocation(program,'uOff3'),
-      off4: gl.getUniformLocation(program,'uOff4')
-    };
+      const quad = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1,-1, 1,-1, -1,1,
+        -1,1, 1,-1, 1,1
+      ]), gl.STATIC_DRAW);
+
+      const aPosition = gl.getAttribLocation(build.program, 'aPosition');
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+      const u = {
+        res: gl.getUniformLocation(build.program,'uResolution'),
+        time: gl.getUniformLocation(build.program,'uTime'),
+        density: gl.getUniformLocation(build.program,'uDensity'),
+        curl: gl.getUniformLocation(build.program,'uCurl'),
+        curlSize: gl.getUniformLocation(build.program,'uCurlSize'),
+        curlCount: gl.getUniformLocation(build.program,'uCurlCount'),
+        curlDynamics: gl.getUniformLocation(build.program,'uCurlDynamics'),
+        turbulence: gl.getUniformLocation(build.program,'uTurbulence'),
+        edge: gl.getUniformLocation(build.program,'uEdge'),
+        edgeUpper: gl.getUniformLocation(build.program,'uEdgeUpper'),
+        edgeLower: gl.getUniformLocation(build.program,'uEdgeLower'),
+        edgeUpperThin: gl.getUniformLocation(build.program,'uEdgeUpperThin'),
+        edgeLowerThin: gl.getUniformLocation(build.program,'uEdgeLowerThin'),
+        edgeSharpness: gl.getUniformLocation(build.program,'uEdgeSharpness'),
+        edgeGradient: gl.getUniformLocation(build.program,'uEdgeGradient'),
+        edgeBreakCount: gl.getUniformLocation(build.program,'uEdgeBreakCount'),
+        edgeBreakStrength: gl.getUniformLocation(build.program,'uEdgeBreakStrength'),
+        edgeBreakSoftness: gl.getUniformLocation(build.program,'uEdgeBreakSoftness'),
+        softness: gl.getUniformLocation(build.program,'uSoftness'),
+        spread: gl.getUniformLocation(build.program,'uSpread'),
+        redness: gl.getUniformLocation(build.program,'uRedness'),
+        off1: gl.getUniformLocation(build.program,'uOff1'),
+        off2: gl.getUniformLocation(build.program,'uOff2'),
+        off3: gl.getUniformLocation(build.program,'uOff3'),
+        off4: gl.getUniformLocation(build.program,'uOff4')
+      };
+      return { gl, u };
+    }
 
     const state = structuredClone(DEFAULT_CONFIG);
-    const runtime = {
+    const authoringRuntime = {
+      speedPending: state.baseParams.speed || 1.0,
+      speedTarget: state.baseParams.speed || 1.0,
+      speedApplied: state.baseParams.speed || 1.0,
+      curlCountApplied: state.baseParams.curlCount || 2.0,
+      curlDynamicsApplied: state.baseParams.curlDynamics || 1.0,
+      renderScale: 0.50
+    };
+    const runtimePreview = {
       macroPending: [0,0,0],
       macroTarget: [0,0,0],
       macroApplied: [0,0,0],
       speedPending: state.baseParams.speed || 1.0,
       speedTarget: state.baseParams.speed || 1.0,
       speedApplied: state.baseParams.speed || 1.0,
+      curlCountApplied: state.baseParams.curlCount || 2.0,
+      curlDynamicsApplied: state.baseParams.curlDynamics || 1.0,
       renderScale: 0.50
     };
+    const SAVE_KEY = 'smoke_shader_savegame_v2';
 
-    const fpsEls = {
-      instant: document.getElementById('fpsInstant'),
-      avg: document.getElementById('fpsAvg'),
-      ms: document.getElementById('frameMs'),
-      res: document.getElementById('fpsRes'),
-      speed: document.getElementById('fpsSpeed'),
-      macros: document.getElementById('perfMacros'),
-      bindings: document.getElementById('bindingCount')
-    };
-    const liveStatusEl = document.getElementById('liveStatus');
-    const embeddedStatusEl = document.getElementById('embeddedStatus');
-    const embeddedLoadEl = document.getElementById('embeddedLoad');
-    const perfNoteEl = document.getElementById('perfNote');
+    const authoringLog = document.getElementById('authoringLog');
+    const runtimeLog = document.getElementById('runtimeLog');
+    const authoring = createRenderer(document.getElementById('authoringCanvas'), authoringLog, 'a');
+    const runtimeR = createRenderer(document.getElementById('runtimeCanvas'), runtimeLog, 'r');
 
-    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    const authoringOverlay = document.getElementById('authoringOverlay');
+    const crossBase = [
+      { x: 0.17, y: 0.56, label: 'D1' },
+      { x: 0.28, y: 0.48, label: 'D2' },
+      { x: 0.38, y: 0.42, label: 'D3' },
+      { x: 0.48, y: 0.36, label: 'D4' },
+    ];
+
+    function clamp(v,min,max) { return Math.max(min, Math.min(max, v)); }
+    function fmt(name, v) {
+      const step = PARAM_SPECS[name]?.step ?? 0.01;
+      return step >= 1 ? Number(v).toFixed(0) : Number(v).toFixed(2);
+    }
+
+
+    function snapshotSavegame() {
+      return {
+        version: 2,
+        state: structuredClone(state),
+        ui: {
+          authoringRenderScale: authoringRuntime.renderScale,
+          runtimeRenderScale: runtimePreview.renderScale,
+          runtimeMacros: [...runtimePreview.macroPending],
+          runtimeSpeedPending: runtimePreview.speedPending,
+          authoringSpeedPending: authoringRuntime.speedPending
+        }
+      };
+    }
+
+    let saveTimer = null;
+    function markDirty() {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(snapshotSavegame()));
+        } catch (e) {
+          console.warn('save failed', e);
+        }
+      }, 150);
+    }
+
+    function applySavegame(save) {
+      if (!save || !save.state) return;
+      const incoming = save.state;
+      if (incoming.baseParams) {
+        for (const [name, spec] of Object.entries(PARAM_SPECS)) {
+          if (name === 'renderScale') continue;
+          if (incoming.baseParams[name] !== undefined) {
+            state.baseParams[name] = clamp(Number(incoming.baseParams[name]), spec.min, spec.max);
+          }
+        }
+      }
+      if (Array.isArray(incoming.offsets) && incoming.offsets.length === 4) {
+        state.offsets = incoming.offsets.map(pair => [Number(pair[0] || 0), Number(pair[1] || 0)]);
+      }
+      if (Array.isArray(incoming.macros) && incoming.macros.length === 3) {
+        state.macros = incoming.macros.map((m, i) => ({
+          name: String(m.name || ('Macro ' + (i + 1))),
+          bindings: Object.fromEntries(Object.entries(m.bindings || {}).filter(([k]) => PARAM_SPECS[k] && k !== 'speed'))
+        }));
+      }
+      const ui = save.ui || {};
+      authoringRuntime.renderScale = clamp(Number(ui.authoringRenderScale ?? authoringRuntime.renderScale), 0.30, 1.00);
+      runtimePreview.renderScale = clamp(Number(ui.runtimeRenderScale ?? runtimePreview.renderScale), 0.30, 1.00);
+      if (Array.isArray(ui.runtimeMacros) && ui.runtimeMacros.length === 3) {
+        runtimePreview.macroPending = ui.runtimeMacros.map(v => clamp(Number(v), 0, 100));
+        runtimePreview.macroTarget = [...runtimePreview.macroPending];
+      }
+      runtimePreview.speedPending = clamp(Number(ui.runtimeSpeedPending ?? runtimePreview.speedPending), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
+      runtimePreview.speedTarget = runtimePreview.speedPending;
+          markDirty();
+      authoringRuntime.speedPending = clamp(Number(ui.authoringSpeedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
+      authoringRuntime.speedTarget = authoringRuntime.speedPending;
+      state.baseParams.speed = authoringRuntime.speedPending;
+    }
+
+    function tryLoadLocalSave() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return;
+        applySavegame(JSON.parse(raw));
+      } catch (e) {
+        console.warn('load local failed', e);
+      }
+    }
 
     function setBaseParam(name, value) {
       const spec = PARAM_SPECS[name];
       state.baseParams[name] = clamp(value, spec.min, spec.max);
+      if (name === 'speed') {
+        authoringRuntime.speedPending = state.baseParams.speed;
+      }
+      updateAuthoringControls();
+      markDirty();
     }
 
-    function updateSpeedHint() {
-      document.getElementById('speedHint').textContent =
-        `speed pending ${runtime.speedPending.toFixed(2)} · applied ${runtime.speedApplied.toFixed(2)}`;
-    }
-
-    function resolveRuntimeParams() {
-      const out = Object.assign({}, state.baseParams);
-      for (let i = 0; i < 3; i++) {
-        const macroNorm = clamp(runtime.macroApplied[i] / 100.0, 0, 1);
+    function resolveRuntime(baseParams, offsets, macros, speed) {
+      const out = Object.assign({}, baseParams);
+      for (let i=0;i<3;i++) {
+        const macroNorm = clamp(macros[i] / 100.0, 0, 1);
         const bindings = state.macros[i].bindings || {};
         for (const [name, influence] of Object.entries(bindings)) {
           const spec = PARAM_SPECS[name];
           if (!spec) continue;
-          const base = state.baseParams[name];
+          const base = baseParams[name];
           out[name] = clamp(base + macroNorm * influence * (spec.max - spec.min), spec.min, spec.max);
         }
       }
-      out.speed = runtime.speedApplied;
+      out.speed = speed;
+      out.offsets = offsets;
       return out;
     }
 
-    function downloadText(filename, text) {
-      const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function exportConfig() {
-      return JSON.stringify(state, null, 2);
-    }
-
-    function buildHostNote() {
-      return [
-        'Use the provided lib/main.dart and assets/smoke_config.json with shaders/steam_safe.frag.',
-        '',
-        'The runtime only needs Macro 1..3 plus Speed.',
-        'The HTML and Flutter host resolve the same mapping:',
-        'resolvedParam = base + macroNorm * influence * (max-min)',
-        '',
-        exportConfig()
-      ].join('\n');
-    }
-
-    document.getElementById('downloadConfig').addEventListener('click', () => downloadText('smoke_config.json', exportConfig()));
-    document.getElementById('downloadFrag').addEventListener('click', () => downloadText('steam_safe.frag', FLUTTER_FRAG));
-    document.getElementById('downloadHostNote').addEventListener('click', () => downloadText('flutter_host_note.txt', buildHostNote()));
-    document.getElementById('copyConfig').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(exportConfig());
-      } catch (e) {
-        console.error(e);
+    function applyUniforms(renderer, params, time, renderScale) {
+      const gl = renderer.gl, u = renderer.u;
+      const internalW = Math.max(1, Math.round(1024 * renderScale));
+      const internalH = Math.max(1, Math.round(600 * renderScale));
+      const canvas = gl.canvas;
+      if (canvas.width !== internalW || canvas.height !== internalH) {
+        canvas.width = internalW; canvas.height = internalH;
+        gl.viewport(0, 0, internalW, internalH);
       }
-    });
-
-    const runtimeMacrosEl = document.getElementById('runtimeMacros');
-    const controlsEl = document.getElementById('controls');
-    function infoTip(name) {
-      const tips = {
-        density:'Mehr Rauch schaltet zusätzliche Fahnen und mehr Volumen zu.',
-        speed:'Wird host-seitig geglättet. Der Shader bekommt nur uTime.',
-        curl:'Grundstärke der Wirbel.',
-        curlSize:'Größe der Wirbel.',
-        curlCount:'Zusätzliche feste Wirbelstationen. Höher = mehr Detail.',
-        curlDynamics:'Zeitliche Lebendigkeit der Wirbelpositionen.',
-        turbulence:'Feinere Unruhe in Kontur und Körper.',
-        edge:'Gesamte Kantenbetonung.',
-        edgeUpper:'Obere Kante separat.',
-        edgeLower:'Untere Kante separat.',
-        edgeUpperThin:'Macht die obere Kante sehr dünn oder breiter. Niedriger = dünner.',
-        edgeLowerThin:'Macht die untere Kante sehr dünn oder breiter. Niedriger = dünner.',
-        edgeSharpness:'Schärfe/Prägnanz der Edge-Bänder.',
-        edgeGradient:'Verlauf der Kantenbetonung entlang der Fahne.',
-        edgeBreakCount:'Anzahl der Edge-Unterbrechungen.',
-        edgeBreakStrength:'Wie tief die Breaks in die Kante schneiden.',
-        edgeBreakSoftness:'Wie weich/lang die Breaks in die volle Kante zurücklaufen.',
-        softness:'Breiterer, milchigerer Körper.',
-        spread:'Öffnet die Fahnen im Raum.',
-        redness:'Echte rote Rauchpalette.'
-      };
-      return tips[name] || '';
-    }
-
-    function renderControls() {
-      controlsEl.innerHTML = '';
-
-      const speedWrap = document.createElement('div');
-      speedWrap.className = 'control';
-      speedWrap.innerHTML = `
-        <div class="row">
-          <div class="label"><span>speed</span><span class="info" data-tip="Pending beim Ziehen, erst beim Loslassen übernommen.">i</span></div>
-          <span class="value">${runtime.speedPending.toFixed(2)}</span>
-        </div>
-        <input type="range" min="${PARAM_SPECS.speed.min}" max="${PARAM_SPECS.speed.max}" step="${PARAM_SPECS.speed.step}" value="${runtime.speedPending}">
-      `;
-      controlsEl.appendChild(speedWrap);
-      const speedSlider = speedWrap.querySelector('input');
-      speedSlider.addEventListener('input', () => {
-        runtime.speedPending = parseFloat(speedSlider.value);
-        speedWrap.querySelector('.value').textContent = runtime.speedPending.toFixed(2);
-        updateSpeedHint();
-      });
-      const commit = () => { runtime.speedTarget = runtime.speedPending; };
-      speedSlider.addEventListener('change', commit);
-      speedSlider.addEventListener('pointerup', commit);
-      speedSlider.addEventListener('touchend', commit);
-
-      const scaleWrap = document.createElement('div');
-      scaleWrap.className = 'control';
-      scaleWrap.innerHTML = `
-        <div class="row">
-          <div class="label"><span>renderScale</span><span class="info" data-tip="${infoTip('renderScale')}">i</span></div>
-          <span class="value">${runtime.renderScale.toFixed(2)}</span>
-        </div>
-        <input type="range" min="0.30" max="0.80" step="0.01" value="${runtime.renderScale}">
-      `;
-      controlsEl.appendChild(scaleWrap);
-      const scaleSlider = scaleWrap.querySelector('input');
-      const scaleValEl = scaleWrap.querySelector('.value');
-      scaleSlider.addEventListener('input', () => {
-        runtime.renderScale = parseFloat(scaleSlider.value);
-        scaleValEl.textContent = runtime.renderScale.toFixed(2);
-        resize();
-      });
-
-      for (const [name, spec] of Object.entries(PARAM_SPECS)) {
-        if (name === 'speed') continue;
-        const wrap = document.createElement('div');
-        wrap.className = 'control';
-        wrap.innerHTML = `
-          <div class="row">
-            <div class="label"><span>${name}</span><span class="info" data-tip="${infoTip(name)}">i</span></div>
-            <span class="value">${Number(state.baseParams[name]).toFixed(spec.step >= 1 ? 0 : 2)}</span>
-          </div>
-          <input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="${state.baseParams[name]}">
-        `;
-        const slider = wrap.querySelector('input');
-        const valEl = wrap.querySelector('.value');
-        slider.addEventListener('input', () => {
-          setBaseParam(name, parseFloat(slider.value));
-          valEl.textContent = Number(state.baseParams[name]).toFixed(spec.step >= 1 ? 0 : 2);
-        });
-        controlsEl.appendChild(wrap);
-      }
-    }
-
-    function renderRuntimeMacros() {
-      runtimeMacrosEl.innerHTML = '';
-      for (let i = 0; i < 3; i++) {
-        const wrap = document.createElement('div');
-        wrap.className = 'control';
-        wrap.innerHTML = `
-          <div class="row">
-            <div class="label"><span>${state.macros[i].name}</span><span class="info" data-tip="Diese 0–100-Werte sind genau die Runtime-Makros, wie sie auch in Flutter host-seitig gemappt werden.">i</span></div>
-            <span class="value">${runtime.macroPending[i].toFixed(0)}</span>
-          </div>
-          <input type="range" min="0" max="100" step="1" value="${runtime.macroPending[i]}">
-        `;
-        const slider = wrap.querySelector('input');
-        const valEl = wrap.querySelector('.value');
-        slider.addEventListener('input', () => {
-          runtime.macroPending[i] = parseFloat(slider.value);
-          runtime.macroTarget[i] = runtime.macroPending[i];
-          valEl.textContent = runtime.macroPending[i].toFixed(0);
-        });
-        runtimeMacrosEl.appendChild(wrap);
-      }
-      updateSpeedHint();
-    }
-
-    const chipList = document.getElementById('chipList');
-    const macroZone = document.getElementById('macroZone');
-
-    function renderChips() {
-      chipList.innerHTML = '';
-      Object.keys(PARAM_SPECS).filter(n => n !== 'speed').forEach((name) => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.draggable = true;
-        chip.textContent = name;
-        chip.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', name));
-        chipList.appendChild(chip);
-      });
-    }
-
-    function renderMacroZone() {
-      macroZone.innerHTML = '';
-      let bindingCount = 0;
-      state.macros.forEach((macro, index) => {
-        bindingCount += Object.keys(macro.bindings || {}).length;
-        const card = document.createElement('div');
-        card.className = 'macro';
-        card.innerHTML = `
-          <div class="macro-header">
-            <strong>${macro.name}</strong>
-            <span class="tiny">${Object.keys(macro.bindings || {}).length} bindings</span>
-          </div>
-          <div class="macro-drop"></div>
-        `;
-        const drop = card.querySelector('.macro-drop');
-        drop.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          drop.classList.add('dragover');
-        });
-        drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
-        drop.addEventListener('drop', (e) => {
-          e.preventDefault();
-          drop.classList.remove('dragover');
-          const name = e.dataTransfer.getData('text/plain');
-          if (!name) return;
-          macro.bindings[name] ??= 0.35;
-          renderMacroZone();
-        });
-
-        const keys = Object.keys(macro.bindings || {});
-        if (!keys.length) {
-          drop.innerHTML = '<span class="tiny">Drop parameter chips here</span>';
-        } else {
-          keys.forEach((name) => {
-            const binding = document.createElement('div');
-            binding.className = 'binding';
-            binding.innerHTML = `
-              <span>${name}</span>
-              <input type="range" min="-1" max="1" step="0.01" value="${macro.bindings[name]}">
-              <span class="mini">${Number(macro.bindings[name]).toFixed(2)}</span>
-              <button title="remove">×</button>
-            `;
-            const slider = binding.querySelector('input');
-            const mini = binding.querySelector('.mini');
-            slider.addEventListener('input', () => {
-              macro.bindings[name] = parseFloat(slider.value);
-              mini.textContent = Number(macro.bindings[name]).toFixed(2);
-            });
-            binding.querySelector('button').addEventListener('click', () => {
-              delete macro.bindings[name];
-              renderMacroZone();
-            });
-            drop.appendChild(binding);
-          });
-        }
-        macroZone.appendChild(card);
-      });
-      fpsEls.bindings.textContent = String(bindingCount);
-    }
-
-    const crossBase = [
-      {x:0.17,y:0.56,label:'D1'},
-      {x:0.28,y:0.48,label:'D2'},
-      {x:0.38,y:0.42,label:'D3'},
-      {x:0.48,y:0.36,label:'D4'},
-    ];
-    const crosses = [];
-    function createCrosses() {
-      overlay.innerHTML = '';
-      crosses.length = 0;
-      state.offsets.forEach((pair, i) => {
-        const el = document.createElement('div');
-        el.className = 'cross';
-        const label = document.createElement('div');
-        label.className = 'cross-label';
-        label.textContent = crossBase[i].label;
-        el.appendChild(label);
-        overlay.appendChild(el);
-        crosses.push(el);
-
-        let dragging = false;
-        function move(clientX, clientY) {
-          const rect = overlay.getBoundingClientRect();
-          const nx = (clientX - rect.left) / rect.width;
-          const ny = (clientY - rect.top) / rect.height;
-          pair[0] = Math.max(-0.8, Math.min(0.8, (nx - crossBase[i].x) * 1.6));
-          pair[1] = Math.max(-0.8, Math.min(0.8, (ny - crossBase[i].y) * 0.95));
-          layoutCrosses();
-        }
-        el.addEventListener('pointerdown', (e) => {
-          dragging = true; el.setPointerCapture(e.pointerId); e.preventDefault();
-        });
-        el.addEventListener('pointermove', (e) => { if (dragging) move(e.clientX, e.clientY); });
-        el.addEventListener('pointerup', () => dragging = false);
-        el.addEventListener('dblclick', () => {
-          pair[0] = 0; pair[1] = 0;
-          layoutCrosses();
-        });
-      });
-      layoutCrosses();
-    }
-
-    function layoutCrosses() {
-      const rect = overlay.getBoundingClientRect();
-      crosses.forEach((el, i) => {
-        const px = (crossBase[i].x + state.offsets[i][0] / 1.6) * rect.width;
-        const py = (crossBase[i].y + state.offsets[i][1] / 0.95) * rect.height;
-        el.style.left = px + 'px';
-        el.style.top = py + 'px';
-      });
-    }
-
-    document.getElementById('resetOffsets').addEventListener('click', () => {
-      state.offsets = [[0,0],[0,0],[0,0],[0,0]];
-      createCrosses();
-    });
-
-    let internalW = 512;
-    let internalH = 300;
-    function resize() {
-      internalW = Math.max(1, Math.round(1024 * runtime.renderScale));
-      internalH = Math.max(1, Math.round(600 * runtime.renderScale));
-      canvas.width = internalW;
-      canvas.height = internalH;
-      gl.viewport(0, 0, internalW, internalH);
-      fpsEls.res.textContent = `${internalW}×${internalH}`;
-      requestAnimationFrame(layoutCrosses);
-    }
-
-    function setStatusPill(el, kind, text) {
-      el.className = 'status-pill status-' + kind;
-      el.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
-    }
-
-    function estimateEmbeddedLoad(params) {
-      let load = 0;
-      load += runtime.renderScale * 34.0;
-      load += ((params.density - 0.30) / (1.80 - 0.30)) * 12.0;
-      load += ((params.curlCount - 0.0) / 6.0) * 12.0;
-      load += ((params.edgeBreakCount - 0.0) / 8.0) * 8.0;
-      load += ((params.turbulence - 0.0) / 2.20) * 8.0;
-      load += ((params.curlDynamics - 0.0) / 2.0) * 7.0;
-      load += ((params.edgeSharpness - 0.40) / (2.80 - 0.40)) * 6.0;
-      load += ((params.spread - 0.35) / (2.20 - 0.35)) * 5.0;
-      load += ((params.softness - 0.40) / (2.20 - 0.40)) * 4.0;
-      if (internalW * internalH > 512 * 300) load += 8.0;
-      return Math.max(0, Math.min(100, Math.round(load)));
-    }
-
-    function updatePerformanceAmpel(fpsAvg, dtMs, params) {
-      const load = estimateEmbeddedLoad(params);
-      embeddedLoadEl.textContent = String(load);
-
-      if (fpsAvg >= 55 && dtMs <= 18) {
-        setStatusPill(liveStatusEl, 'green', 'green');
-      } else if (fpsAvg >= 35 && dtMs <= 30) {
-        setStatusPill(liveStatusEl, 'yellow', 'yellow');
-      } else {
-        setStatusPill(liveStatusEl, 'red', 'red');
-      }
-
-      let embeddedKind = 'green';
-      let note = 'Grün: gutes Zeichen für dein Ziel. Niedrige bis moderate Shader-Komplexität bei embedded-freundlicher Auflösung.';
-      if (load <= 38 && internalW * internalH <= 512 * 300) {
-        embeddedKind = 'green';
-      } else if (load <= 62 && internalW * internalH <= 640 * 360) {
-        embeddedKind = 'yellow';
-        note = 'Gelb: wahrscheinlich noch okay, aber auf echter Hardware testen. Vor allem Curl Count, Edge Breaks und Turbulence treiben die Last.';
-      } else {
-        embeddedKind = 'red';
-        note = 'Rot: für Cortex + dedizierte OpenGL2-GPU in einem Backofen eher riskant. Erst Render Scale, dann Curl/Break/Turbulence reduzieren.';
-      }
-      setStatusPill(embeddedStatusEl, embeddedKind, embeddedKind);
-      perfNoteEl.textContent = note + ' Browser-FPS allein ist nicht der Maßstab; die Ampel gewichtet vor allem Shader-Komplexität und interne Auflösung.';
-    }
-
-    renderControls();
-    renderRuntimeMacros();
-    renderChips();
-    renderMacroZone();
-    createCrosses();
-    resize();
-
-    window.addEventListener('resize', () => {
-      resize();
-      layoutCrosses();
-    });
-
-    let lastFrameTime = performance.now();
-    let fpsAvg = 0;
-    let shaderTime = 0;
-
-    function render(now) {
-      const dtMs = Math.max(0.0001, now - lastFrameTime);
-      lastFrameTime = now;
-      const dt = dtMs * 0.001;
-
-      runtime.speedApplied += (runtime.speedTarget - runtime.speedApplied) * Math.min(1.0, dt * 6.0);
-      for (let i = 0; i < 3; i++) {
-        runtime.macroApplied[i] += (runtime.macroTarget[i] - runtime.macroApplied[i]) * Math.min(1.0, dt * 7.0);
-      }
-      shaderTime += dt * runtime.speedApplied;
-
-      const params = resolveRuntimeParams();
-
-      gl.useProgram(program);
+      gl.useProgram(gl.getParameter(gl.CURRENT_PROGRAM));
       gl.uniform2f(u.res, internalW, internalH);
-      gl.uniform1f(u.time, shaderTime);
+      gl.uniform1f(u.time, time);
       gl.uniform1f(u.density, params.density);
       gl.uniform1f(u.curl, params.curl);
       gl.uniform1f(u.curlSize, params.curlSize);
@@ -991,25 +765,465 @@ void main() {
       gl.uniform1f(u.softness, params.softness);
       gl.uniform1f(u.spread, params.spread);
       gl.uniform1f(u.redness, params.redness);
-      gl.uniform2f(u.off1, state.offsets[0][0], state.offsets[0][1]);
-      gl.uniform2f(u.off2, state.offsets[1][0], state.offsets[1][1]);
-      gl.uniform2f(u.off3, state.offsets[2][0], state.offsets[2][1]);
-      gl.uniform2f(u.off4, state.offsets[3][0], state.offsets[3][1]);
+      gl.uniform2f(u.off1, params.offsets[0][0], params.offsets[0][1]);
+      gl.uniform2f(u.off2, params.offsets[1][0], params.offsets[1][1]);
+      gl.uniform2f(u.off3, params.offsets[2][0], params.offsets[2][1]);
+      gl.uniform2f(u.off4, params.offsets[3][0], params.offsets[3][1]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      return {w: internalW, h: internalH};
+    }
+
+    function estimateEmbeddedLoad(params, renderScale) {
+      let load = 0;
+      load += renderScale * 34.0;
+      load += ((params.density - 0.30) / (1.80 - 0.30)) * 12.0;
+      load += ((params.curlCount - 0.0) / 6.0) * 12.0;
+      load += ((params.edgeBreakCount - 0.0) / 8.0) * 8.0;
+      load += ((params.turbulence - 0.0) / 2.20) * 8.0;
+      load += ((params.curlDynamics - 0.0) / 2.0) * 7.0;
+      load += ((params.edgeSharpness - 0.40) / (2.80 - 0.40)) * 6.0;
+      load += ((params.spread - 0.35) / (2.20 - 0.35)) * 5.0;
+      load += ((params.softness - 0.40) / (2.20 - 0.40)) * 4.0;
+      if ((1024*renderScale) * (600*renderScale) > 512*300) load += 8.0;
+      return Math.max(0, Math.min(100, Math.round(load)));
+    }
+
+    function setStatusPill(el, kind, text) {
+      el.className = 'status-pill status-' + kind;
+      el.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
+    }
+
+    const authoringPerfEls = {
+      fpsInstant: document.getElementById('aFpsInstant'),
+      fpsAvg: document.getElementById('aFpsAvg'),
+      frameMs: document.getElementById('aFrameMs'),
+      res: document.getElementById('aRes'),
+      speed: document.getElementById('aSpeed'),
+      live: document.getElementById('aLiveStatus'),
+      embedded: document.getElementById('aEmbeddedStatus'),
+      load: document.getElementById('aEmbeddedLoad')
+    };
+    const runtimePerfEls = {
+      fpsInstant: document.getElementById('rFpsInstant'),
+      fpsAvg: document.getElementById('rFpsAvg'),
+      frameMs: document.getElementById('rFrameMs'),
+      res: document.getElementById('rRes'),
+      speed: document.getElementById('rSpeed'),
+      macros: document.getElementById('rMacros')
+    };
+
+    function updateAmpel(els, fpsAvg, dtMs, params, renderScale) {
+      const load = estimateEmbeddedLoad(params, renderScale);
+      els.load.textContent = String(load);
+      if (fpsAvg >= 55 && dtMs <= 18) setStatusPill(els.live, 'green', 'green');
+      else if (fpsAvg >= 35 && dtMs <= 30) setStatusPill(els.live, 'yellow', 'yellow');
+      else setStatusPill(els.live, 'red', 'red');
+
+      if (load <= 38 && renderScale <= 0.5) setStatusPill(els.embedded, 'green', 'green');
+      else if (load <= 62 && renderScale <= 0.625) setStatusPill(els.embedded, 'yellow', 'yellow');
+      else setStatusPill(els.embedded, 'red', 'red');
+    }
+
+    // Tabs
+    const tabAuthoring = document.getElementById('tabAuthoring');
+    const tabRuntime = document.getElementById('tabRuntime');
+    const authoringPanel = document.getElementById('authoringPanel');
+    const runtimePanel = document.getElementById('runtimePanel');
+    const authoringStage = document.getElementById('authoringStage');
+    const runtimeStage = document.getElementById('runtimeStage');
+    tabAuthoring.addEventListener('click', () => {
+      tabAuthoring.classList.add('active'); tabRuntime.classList.remove('active');
+      authoringPanel.classList.remove('hidden'); runtimePanel.classList.add('hidden');
+      authoringStage.classList.remove('hidden'); runtimeStage.classList.add('hidden');
+    });
+    tabRuntime.addEventListener('click', () => {
+      tabRuntime.classList.add('active'); tabAuthoring.classList.remove('active');
+      runtimePanel.classList.remove('hidden'); authoringPanel.classList.add('hidden');
+      runtimeStage.classList.remove('hidden'); authoringStage.classList.add('hidden');
+    });
+
+    // Controls
+    const authoringControls = document.getElementById('authoringControls');
+    const runtimeControls = document.getElementById('runtimeControls');
+    const runtimeHint = document.getElementById('runtimeHint');
+    const resolvedText = document.getElementById('resolvedText');
+
+    tryLoadLocalSave();
+
+    const authoringControlRefs = {};
+    let renderScaleRef = null;
+    function createControl(name, value, onInput, onCommit) {
+      const spec = PARAM_SPECS[name];
+      const wrap = document.createElement('div');
+      wrap.className = 'control';
+      wrap.innerHTML = `
+        <div class="row">
+          <div class="label"><span>${name}</span><span class="info" data-tip="${spec.tip}">i</span></div>
+          <span class="value"></span>
+        </div>
+        <input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}">
+      `;
+      const label = wrap.querySelector('.value');
+      const slider = wrap.querySelector('input');
+      slider.value = value;
+      label.textContent = fmt(name, value);
+      slider.addEventListener('input', () => {
+        onInput(parseFloat(slider.value));
+        label.textContent = fmt(name, slider.value);
+      });
+      if (onCommit) {
+        slider.addEventListener('change', () => onCommit(parseFloat(slider.value)));
+        slider.addEventListener('pointerup', () => onCommit(parseFloat(slider.value)));
+        slider.addEventListener('touchend', () => onCommit(parseFloat(slider.value)));
+      }
+      return { wrap, slider, label };
+    }
+
+    function updateAuthoringControls() {
+      for (const [name, ref] of Object.entries(authoringControlRefs)) {
+        ref.slider.value = state.baseParams[name];
+        ref.label.textContent = fmt(name, state.baseParams[name]);
+      }
+      if (renderScaleRef) {
+        renderScaleRef.slider.value = authoringRuntime.renderScale;
+        renderScaleRef.label.textContent = fmt('renderScale', authoringRuntime.renderScale);
+      }
+    }
+
+    // create controls once
+    for (const name of Object.keys(PARAM_SPECS)) {
+      if (name === 'renderScale') continue;
+      const ref = createControl(
+        name,
+        state.baseParams[name],
+        (v) => {
+          if (name === 'speed') {
+            authoringRuntime.speedPending = v;
+            ref.label.textContent = fmt(name, v);
+          } else {
+            setBaseParam(name, v);
+          }
+        },
+        name === 'speed' ? (v) => { authoringRuntime.speedTarget = v; markDirty(); } : null
+      );
+      authoringControlRefs[name] = ref;
+      authoringControls.appendChild(ref.wrap);
+    }
+
+    // repurpose renderScale as authoring-only UI virtual control
+    renderScaleRef = createControl(
+      'renderScale',
+      authoringRuntime.renderScale,
+      (v) => { authoringRuntime.renderScale = v; markDirty(); },
+      null
+    );
+    renderScaleRef.wrap.querySelector('.label span').textContent = 'renderScale';
+    authoringControls.appendChild(renderScaleRef.wrap);
+
+    function renderRuntimeControls() {
+      runtimeControls.innerHTML = '';
+      state.macros.forEach((macro, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'control';
+        wrap.innerHTML = `
+          <div class="row">
+            <div class="label"><span>${macro.name}</span><span class="info" data-tip="Runtime-Makro 0–100. Dieselbe Host-Mapping-Logik wie in Flutter.">i</span></div>
+            <span class="value">${runtimePreview.macroPending[i].toFixed(0)}</span>
+          </div>
+          <input type="range" min="0" max="100" step="1" value="${runtimePreview.macroPending[i]}">
+        `;
+        const label = wrap.querySelector('.value');
+        const slider = wrap.querySelector('input');
+        slider.addEventListener('input', () => {
+          runtimePreview.macroPending[i] = parseFloat(slider.value);
+          runtimePreview.macroTarget[i] = runtimePreview.macroPending[i];
+          markDirty();
+          label.textContent = runtimePreview.macroPending[i].toFixed(0);
+        });
+        runtimeControls.appendChild(wrap);
+      });
+
+      const speed = document.createElement('div');
+      speed.className = 'control';
+      speed.innerHTML = `
+        <div class="row">
+          <div class="label"><span>speed</span><span class="info" data-tip="Pending beim Ziehen, erst beim Loslassen übernommen.">i</span></div>
+          <span class="value">${runtimePreview.speedPending.toFixed(2)}</span>
+        </div>
+        <input type="range" min="${PARAM_SPECS.speed.min}" max="${PARAM_SPECS.speed.max}" step="${PARAM_SPECS.speed.step}" value="${runtimePreview.speedPending}">
+      `;
+      const speedLabel = speed.querySelector('.value');
+      const speedSlider = speed.querySelector('input');
+      speedSlider.addEventListener('input', () => {
+        runtimePreview.speedPending = parseFloat(speedSlider.value);
+        speedLabel.textContent = runtimePreview.speedPending.toFixed(2);
+      });
+      const commit = () => { runtimePreview.speedTarget = runtimePreview.speedPending;
+          markDirty(); };
+      speedSlider.addEventListener('change', commit);
+      speedSlider.addEventListener('pointerup', commit);
+      speedSlider.addEventListener('touchend', commit);
+      runtimeControls.appendChild(speed);
+    }
+    renderRuntimeControls();
+
+    // Macro editor
+    const chipList = document.getElementById('chipList');
+    const macroZone = document.getElementById('macroZone');
+
+    function renderChips() {
+      chipList.innerHTML = '';
+      for (const name of Object.keys(PARAM_SPECS)) {
+        if (name === 'speed') continue;
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.draggable = true;
+        chip.textContent = name;
+        chip.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', name));
+        chipList.appendChild(chip);
+      }
+    }
+
+    function renderMacroZone() {
+      macroZone.innerHTML = '';
+      let bindingCount = 0;
+      state.macros.forEach((macro, index) => {
+        const card = document.createElement('div');
+        card.className = 'macro';
+        const bindings = macro.bindings || {};
+        bindingCount += Object.keys(bindings).length;
+        card.innerHTML = `
+          <div class="macro-header"><strong>${macro.name}</strong><span class="tiny">${Object.keys(bindings).length} bindings</span></div>
+          <div class="macro-drop" data-index="${index}"></div>
+        `;
+        const drop = card.querySelector('.macro-drop');
+        drop.addEventListener('dragover', (e) => {
+          e.preventDefault(); drop.classList.add('dragover');
+        });
+        drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+        drop.addEventListener('drop', (e) => {
+          e.preventDefault(); drop.classList.remove('dragover');
+          const name = e.dataTransfer.getData('text/plain');
+          if (!name) return;
+          if (!(name in macro.bindings)) macro.bindings[name] = 0.35;
+          renderMacroZone();
+          markDirty();
+        });
+
+        if (!Object.keys(bindings).length) {
+          drop.innerHTML = '<span class="tiny">Drop parameter chips here</span>';
+        } else {
+          for (const [name, influence] of Object.entries(bindings)) {
+            const binding = document.createElement('div');
+            binding.className = 'binding';
+            binding.innerHTML = `
+              <span>${name}</span>
+              <input type="range" min="-1" max="1" step="0.01" value="${influence}">
+              <span class="mini">${Number(influence).toFixed(2)}</span>
+              <button title="remove">×</button>
+            `;
+            const slider = binding.querySelector('input');
+            const mini = binding.querySelector('.mini');
+            slider.addEventListener('input', () => {
+              macro.bindings[name] = parseFloat(slider.value);
+              mini.textContent = Number(macro.bindings[name]).toFixed(2);
+              markDirty();
+            });
+            binding.querySelector('button').addEventListener('click', () => {
+              delete macro.bindings[name];
+              renderMacroZone();
+              markDirty();
+            });
+            drop.appendChild(binding);
+          }
+        }
+        macroZone.appendChild(card);
+      });
+    }
+    renderChips();
+    renderMacroZone();
+
+    // Offsets / crosses
+    function layoutCrosses() {
+      const rect = authoringOverlay.getBoundingClientRect();
+      Array.from(authoringOverlay.children).forEach((el, i) => {
+        const px = (crossBase[i].x + state.offsets[i][0] / 1.6) * rect.width;
+        const py = (crossBase[i].y - state.offsets[i][1] / 0.95) * rect.height;
+        el.style.left = px + 'px';
+        el.style.top = py + 'px';
+      });
+    }
+
+    function createCrosses() {
+      authoringOverlay.innerHTML = '';
+      state.offsets.forEach((pair, i) => {
+        const el = document.createElement('div');
+        el.className = 'cross';
+        const label = document.createElement('div');
+        label.className = 'cross-label';
+        label.textContent = crossBase[i].label;
+        el.appendChild(label);
+        authoringOverlay.appendChild(el);
+
+        let dragging = false;
+        function move(clientX, clientY) {
+          const rect = authoringOverlay.getBoundingClientRect();
+          const nx = (clientX - rect.left) / rect.width;
+          const ny = (clientY - rect.top) / rect.height;
+          pair[0] = clamp((nx - crossBase[i].x) * 1.6, -0.8, 0.8);
+          pair[1] = clamp(-(ny - crossBase[i].y) * 0.95, -0.8, 0.8);
+          layoutCrosses();
+          markDirty();
+        }
+        el.addEventListener('pointerdown', (e) => {
+          dragging = true;
+          el.setPointerCapture(e.pointerId);
+          e.preventDefault();
+        });
+        el.addEventListener('pointermove', (e) => {
+          if (!dragging) return;
+          move(e.clientX, e.clientY);
+        });
+        el.addEventListener('pointerup', () => dragging = false);
+        el.addEventListener('dblclick', () => {
+          pair[0] = 0; pair[1] = 0;
+          layoutCrosses();
+          markDirty();
+          markDirty();
+        });
+      });
+      layoutCrosses();
+    }
+    createCrosses();
+
+    document.getElementById('resetOffsets').addEventListener('click', () => {
+      state.offsets = [[0,0],[0,0],[0,0],[0,0]];
+      createCrosses();
+      markDirty();
+    });
+
+    function downloadText(name, text) {
+      const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function buildHostNote() {
+      return `Use lib/main.dart and assets/smoke_config.json from the project bundle.\n\nCurrent config:\n\n` + JSON.stringify(state, null, 2);
+    }
+
+    document.getElementById('downloadConfig').addEventListener('click', () => downloadText('smoke_config.json', JSON.stringify(state, null, 2)));
+    document.getElementById('copyConfig').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(JSON.stringify(state, null, 2)); } catch (e) { console.error(e); }
+    });
+    document.getElementById('downloadFrag').addEventListener('click', () => downloadText('steam_safe.frag', FLUTTER_FRAG));
+    document.getElementById('downloadHostNote').addEventListener('click', () => downloadText('flutter_host_note.txt', buildHostNote()));
+
+    document.getElementById('saveLocal').addEventListener('click', () => {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(snapshotSavegame()));
+        authoringLog.textContent = 'Lokaler Save erfolgreich gespeichert.';
+      } catch (e) {
+        authoringLog.textContent = 'Lokaler Save fehlgeschlagen: ' + e.message;
+      }
+    });
+    document.getElementById('loadLocal').addEventListener('click', () => {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) {
+          authoringLog.textContent = 'Kein lokaler Save gefunden.';
+          return;
+        }
+        applySavegame(JSON.parse(raw));
+        updateAuthoringControls();
+        renderRuntimeControls();
+        renderMacroZone();
+        createCrosses();
+        authoringLog.textContent = 'Lokaler Save geladen.';
+      } catch (e) {
+        authoringLog.textContent = 'Lokaler Load fehlgeschlagen: ' + e.message;
+      }
+    });
+    document.getElementById('downloadSavegame').addEventListener('click', () => {
+      downloadText('smoke_savegame.json', JSON.stringify(snapshotSavegame(), null, 2));
+    });
+    document.getElementById('importSavegameBtn').addEventListener('click', () => {
+      document.getElementById('importSavegameInput').click();
+    });
+    document.getElementById('importSavegameInput').addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        applySavegame(JSON.parse(text));
+        updateAuthoringControls();
+        renderRuntimeControls();
+        renderMacroZone();
+        createCrosses();
+        markDirty();
+        authoringLog.textContent = 'Savegame geladen.';
+      } catch (err) {
+        authoringLog.textContent = 'Savegame konnte nicht geladen werden: ' + err.message;
+      }
+      e.target.value = '';
+    });
+
+    let last = performance.now();
+    let aAvg = 0, rAvg = 0;
+    let aTime = 0, rTime = 0;
+
+    function tick(now) {
+      const dtMs = Math.max(0.0001, now - last);
+      const dt = dtMs * 0.001;
+      last = now;
+
+      authoringRuntime.speedApplied += (authoringRuntime.speedTarget - authoringRuntime.speedApplied) * Math.min(1.0, dt * 6.0);
+      authoringRuntime.curlCountApplied += (state.baseParams.curlCount - authoringRuntime.curlCountApplied) * Math.min(1.0, dt * 7.0);
+      authoringRuntime.curlDynamicsApplied += (state.baseParams.curlDynamics - authoringRuntime.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
+      runtimePreview.speedApplied += (runtimePreview.speedTarget - runtimePreview.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i=0;i<3;i++) {
+        runtimePreview.macroApplied[i] += (runtimePreview.macroTarget[i] - runtimePreview.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      }
+      aTime += dt * authoringRuntime.speedApplied;
+      rTime += dt * runtimePreview.speedApplied;
+
+      const authoringParams = resolveRuntime(state.baseParams, state.offsets, [0,0,0], authoringRuntime.speedApplied);
+      authoringParams.curlCount = authoringRuntime.curlCountApplied;
+      authoringParams.curlDynamics = authoringRuntime.curlDynamicsApplied;
+      const runtimeParams = resolveRuntime(state.baseParams, state.offsets, runtimePreview.macroApplied, runtimePreview.speedApplied);
+
+      const aSize = applyUniforms(authoring, authoringParams, aTime, authoringRuntime.renderScale);
+      const rSize = applyUniforms(runtimeR, runtimeParams, rTime, runtimePreview.renderScale);
 
       const fpsInstant = 1000.0 / dtMs;
-      fpsAvg = fpsAvg === 0 ? fpsInstant : fpsAvg * 0.92 + fpsInstant * 0.08;
-      fpsEls.instant.textContent = fpsInstant.toFixed(1);
-      fpsEls.avg.textContent = fpsAvg.toFixed(1);
-      fpsEls.ms.textContent = dtMs.toFixed(2);
-      fpsEls.speed.textContent = runtime.speedApplied.toFixed(2);
-      fpsEls.macros.textContent = `${runtime.macroApplied[0].toFixed(0)} / ${runtime.macroApplied[1].toFixed(0)} / ${runtime.macroApplied[2].toFixed(0)}`;
+      aAvg = aAvg === 0 ? fpsInstant : aAvg * 0.92 + fpsInstant * 0.08;
+      rAvg = rAvg === 0 ? fpsInstant : rAvg * 0.92 + fpsInstant * 0.08;
 
-      document.getElementById('speedHint').textContent = `speed pending ${runtime.speedPending.toFixed(2)} · applied ${runtime.speedApplied.toFixed(2)}`;
-      updatePerformanceAmpel(fpsAvg, dtMs, params);
-      requestAnimationFrame(render);
+      authoringPerfEls.fpsInstant.textContent = fpsInstant.toFixed(1);
+      authoringPerfEls.fpsAvg.textContent = aAvg.toFixed(1);
+      authoringPerfEls.frameMs.textContent = dtMs.toFixed(2);
+      authoringPerfEls.res.textContent = `${aSize.w}×${aSize.h}`;
+      authoringPerfEls.speed.textContent = authoringRuntime.speedApplied.toFixed(2);
+      updateAmpel(authoringPerfEls, aAvg, dtMs, authoringParams, authoringRuntime.renderScale);
+
+      runtimePerfEls.fpsInstant.textContent = fpsInstant.toFixed(1);
+      runtimePerfEls.fpsAvg.textContent = rAvg.toFixed(1);
+      runtimePerfEls.frameMs.textContent = dtMs.toFixed(2);
+      runtimePerfEls.res.textContent = `${rSize.w}×${rSize.h}`;
+      runtimePerfEls.speed.textContent = runtimePreview.speedApplied.toFixed(2);
+      runtimePerfEls.macros.textContent = `${runtimePreview.macroApplied[0].toFixed(0)} / ${runtimePreview.macroApplied[1].toFixed(0)} / ${runtimePreview.macroApplied[2].toFixed(0)}`;
+
+      runtimeHint.textContent = `speed pending ${runtimePreview.speedPending.toFixed(2)} · applied ${runtimePreview.speedApplied.toFixed(2)}`;
+      resolvedText.textContent = `Resolved: density ${runtimeParams.density.toFixed(2)} · curl ${runtimeParams.curl.toFixed(2)} · edge ${runtimeParams.edge.toFixed(2)} · red ${runtimeParams.redness.toFixed(2)}`;
+
+      requestAnimationFrame(tick);
     }
-    requestAnimationFrame(render);
+    requestAnimationFrame(tick);
+
+    window.addEventListener('resize', layoutCrosses);
   </script>
 </body>
 </html>
