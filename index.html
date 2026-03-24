@@ -1,162 +1,108 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Natural Edge Smoke LR · Macro Controls</title>
+  <title>Smoke Macro Authoring Tool</title>
   <style>
     :root {
-      --panel-bg: rgba(18, 22, 30, 0.80);
+      --panel-bg: rgba(18,22,30,0.82);
       --panel-border: rgba(255,255,255,0.08);
       --text-dim: rgba(235,240,250,0.72);
     }
     html, body {
       margin: 0; width: 100%; height: 100%; overflow: hidden;
-      background: #0a0d12; color: #e9edf5;
-      font-family: Inter, system-ui, Arial, sans-serif;
+      background: #0a0d12; color: #e9edf5; font-family: Inter, system-ui, Arial, sans-serif;
     }
-    .stage {
-      position: fixed; inset: 0; display: grid; place-items: center;
-      padding: 24px; box-sizing: border-box;
-    }
+    .stage { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
     #gl {
-      width: min(1024px, calc(100vw - 48px));
-      aspect-ratio: 1024 / 600;
-      display: block; border-radius: 18px;
+      width: min(1024px, calc(100vw - 48px)); aspect-ratio: 1024 / 600;
+      display: block; border-radius: 18px; background: #0a0d12;
       box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-      background: #0a0d12;
     }
     .overlay {
-      position: absolute;
-      width: min(1024px, calc(100vw - 48px));
-      aspect-ratio: 1024 / 600;
-      pointer-events: none;
+      position: absolute; width: min(1024px, calc(100vw - 48px)); aspect-ratio: 1024 / 600; pointer-events: none;
     }
     .cross {
-      position: absolute;
-      width: 26px; height: 26px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      border: 1px solid rgba(255,255,255,0.6);
-      background: rgba(255,255,255,0.06);
-      box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-      pointer-events: auto;
-      cursor: grab;
-      user-select: none;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      position: absolute; width: 26px; height: 26px; border-radius: 50%;
+      transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.06); box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+      pointer-events: auto; cursor: grab; user-select: none;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
     .cross:before, .cross:after {
-      content: "";
-      position: absolute;
-      background: rgba(255,255,255,0.95);
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
+      content:""; position:absolute; background:rgba(255,255,255,0.95);
+      left:50%; top:50%; transform:translate(-50%,-50%);
     }
     .cross:before { width: 12px; height: 1.6px; }
     .cross:after { width: 1.6px; height: 12px; }
     .cross-label {
-      position: absolute;
-      left: 50%; top: calc(100% + 6px);
-      transform: translateX(-50%);
-      font-size: 10px;
-      color: rgba(255,255,255,0.85);
-      white-space: nowrap;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.55);
-      pointer-events: none;
+      position:absolute; left:50%; top:calc(100% + 6px); transform:translateX(-50%);
+      font-size:10px; color:rgba(255,255,255,0.85); white-space:nowrap;
+      text-shadow:0 1px 4px rgba(0,0,0,0.55); pointer-events:none;
     }
     .ui {
-      position: fixed; top: 20px; left: 20px; width: 420px; max-height: calc(100vh - 40px);
-      overflow: auto; padding: 16px 18px; border-radius: 18px;
-      background: var(--panel-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      position: fixed; top: 20px; left: 20px; width: 430px; max-height: calc(100vh - 40px); overflow: auto;
+      padding: 16px 18px; border-radius: 18px; background: var(--panel-bg);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--panel-border);
       box-shadow: 0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
     }
-    .fps {
-      position: fixed; top: 20px; right: 20px; min-width: 220px; padding: 10px 12px;
-      border-radius: 14px; background: var(--panel-bg); backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px); border: 1px solid var(--panel-border);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.35); font-size: 12px; line-height: 1.5;
+    .perf {
+      position: fixed; top: 20px; right: 20px; min-width: 225px;
+      padding: 10px 12px; border-radius: 14px; background: var(--panel-bg);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border); box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+      font-size: 12px; line-height: 1.5;
     }
     h1 { font-size: 16px; margin: 0 0 10px; font-weight: 600; letter-spacing: 0.2px; }
     .meta { margin: 0 0 14px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
     .section { margin: 14px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(235,240,250,0.62); }
     .control { margin-bottom: 14px; }
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; color: #cfd6e6; }
-    .label { display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .label-text { white-space: nowrap; }
-    .value { color: #ffffff; font-variant-numeric: tabular-nums; opacity: 0.95; white-space: nowrap; }
-    input[type="range"] { width: 100%; appearance: none; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; }
-    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer; border: none; }
-    input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; cursor: pointer; border: none; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; color:#cfd6e6; }
+    .label { display:flex; align-items:center; gap:6px; }
+    .value { color:white; font-variant-numeric:tabular-nums; opacity:0.95; white-space:nowrap; }
+    input[type='range'] { width:100%; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.14); outline:none; }
+    input[type='range']::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.25); border:none; cursor:pointer; }
+    input[type='range']::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:white; border:none; cursor:pointer; }
     .info {
-      position: relative; width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center;
-      font-size: 11px; font-weight: 700; color: white; background: rgba(255,255,255,0.12); cursor: help; flex: 0 0 16px;
+      position:relative; width:16px; height:16px; border-radius:50%; display:inline-grid; place-items:center;
+      font-size:11px; font-weight:700; color:white; background:rgba(255,255,255,0.12); cursor:help;
     }
     .info:hover::after {
-      content: attr(data-tip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
-      width: 225px; padding: 9px 10px; border-radius: 10px; background: rgba(10,12,18,0.96); color: #eef2fa;
-      border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 10px 28px rgba(0,0,0,0.35);
-      font-size: 11px; line-height: 1.42; white-space: normal; z-index: 50; pointer-events: none;
+      content: attr(data-tip); position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%);
+      width:220px; padding:9px 10px; border-radius:10px; background:rgba(10,12,18,0.96); color:#eef2fa;
+      border:1px solid rgba(255,255,255,0.10); box-shadow:0 10px 28px rgba(0,0,0,0.35);
+      font-size:11px; line-height:1.42; white-space:normal; z-index:50; pointer-events:none;
     }
-    .subhint { margin-top: -6px; margin-bottom: 10px; font-size: 11px; line-height: 1.4; color: rgba(235,240,250,0.62); }
-    .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
-    button {
-      appearance: none; border: none; border-radius: 12px; background: rgba(255,255,255,0.10);
-      color: white; padding: 10px 12px; font: inherit; cursor: pointer;
+    .subhint { margin-top:-6px; margin-bottom:10px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.62); }
+    .actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+    button { appearance:none; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:white; padding:10px 12px; font:inherit; cursor:pointer; }
+    button:hover { background:rgba(255,255,255,0.16); }
+    .hint { margin-top:10px; font-size:12px; line-height:1.45; color:var(--text-dim); }
+    .status-pill {
+      display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
+      font-weight:600; border:1px solid rgba(255,255,255,0.10);
     }
-    button:hover { background: rgba(255,255,255,0.16); }
-    .hint { margin-top: 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
-
-    .macro-toolbar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    .macro-zone {
-      display: grid; gap: 10px;
-    }
-    .macro {
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .macro-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
-      font-size: 12px; color: rgba(255,255,255,0.92);
-    }
-    .macro-drop {
-      min-height: 38px;
-      padding: 8px;
-      border-radius: 10px;
-      border: 1px dashed rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.03);
-      display: flex; flex-wrap: wrap; gap: 6px;
-      align-items: center;
-      margin-top: 8px;
-    }
-    .macro-drop.dragover {
-      border-color: rgba(255,255,255,0.45);
-      background: rgba(255,255,255,0.08);
-    }
-    .chip-list {
-      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
-    }
-    .chip, .bound-chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 8px; border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.10);
-      font-size: 11px; color: rgba(255,255,255,0.92);
-      user-select: none;
-    }
-    .chip { cursor: grab; }
-    .bound-chip button {
-      padding: 0; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer;
-      font-size: 12px; line-height: 1;
-    }
-    .tiny {
-      font-size: 11px; color: rgba(255,255,255,0.65);
-    }
+    .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .status-green { background:rgba(60,130,60,0.22); color:#bff0bf; }
+    .status-green .status-dot { background:#69d36f; }
+    .status-yellow { background:rgba(150,120,35,0.24); color:#ffe7a8; }
+    .status-yellow .status-dot { background:#f0c14a; }
+    .status-red { background:rgba(150,45,45,0.24); color:#ffb4b4; }
+    .status-red .status-dot { background:#f06a6a; }
+    .perf-note { margin-top:8px; font-size:11px; line-height:1.4; color:rgba(235,240,250,0.70); }
+    .macro { padding:12px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); margin-bottom:12px; }
+    .macro-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; }
+    .macro-drop { min-height:38px; padding:8px; border-radius:10px; border:1px dashed rgba(255,255,255,0.18); background:rgba(255,255,255,0.03); display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; margin-top:8px; }
+    .macro-drop.dragover { border-color:rgba(255,255,255,0.45); background:rgba(255,255,255,0.08); }
+    .chip-list { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip, .binding { display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10); font-size:11px; }
+    .chip { cursor:grab; }
+    .binding input[type='range'] { width:70px; height:4px; }
+    .binding .mini { width:32px; text-align:right; font-size:10px; color:rgba(255,255,255,0.75); }
+    .binding button { padding:0; background:transparent; border:none; color:rgba(255,255,255,0.8); }
+    .tiny { font-size:11px; color:rgba(255,255,255,0.65); }
   </style>
 </head>
 <body>
@@ -166,323 +112,98 @@
   </div>
 
   <div class="ui">
-    <h1>Natural Edge Smoke · Macro Controls</h1>
+    <h1>Smoke Macro Authoring Tool</h1>
     <div class="meta">
-      Mehr prägnante Edges, weich auslaufende Edge-Breaks, größere Softness-Range, Curl Count bis 6
-      und Makro-Slider mit Drag-and-Drop-Bindings.
+      Ein gemeinsamer Exportshader für Flutter + Web-Vorschau. Die großen Detailregler bearbeiten die Basis-Konfiguration.
+      Darunter definierst du 3 Runtime-Makros mit Drag-and-Drop. Die Vorschau verwendet dieselbe Host-Mapping-Logik wie das Flutter-Projekt.
     </div>
 
-    <div class="section">Look</div>
+    <div class="section">Runtime macro preview (0–100)</div>
+    <div id="runtimeMacros"></div>
+    <div class="subhint" id="speedHint">speed pending 1.00 · applied 1.00</div>
 
-    <div class="control" data-chip="density">
-      <div class="row">
-        <div class="label"><span class="label-text">Smoke Density</span><span class="info" data-tip="Mehr Rauch heißt hier: zusätzliche Fahnen, mehr Volumen und breitere Körper. Leistung: mittel.">i</span></div>
-        <span class="value" id="densityValue">1.00</span>
-      </div>
-      <input id="density" type="range" min="0.30" max="1.80" step="0.01" value="1.00" />
-    </div>
+    <div class="section">Base parameter authoring</div>
+    <div id="controls"></div>
 
-    <div class="control" data-chip="speed">
-      <div class="row">
-        <div class="label"><span class="label-text">Flow Speed</span><span class="info" data-tip="Während des Ziehens nur pending. Erst beim Loslassen übernommen und dann weich angefahren. Leistung: praktisch kostenlos.">i</span></div>
-        <span class="value" id="speedValue">1.00</span>
-      </div>
-      <input id="speed" type="range" min="0.10" max="2.40" step="0.01" value="1.00" />
-      <div class="subhint" id="speedHint">pending 1.00 · applied 1.00</div>
-    </div>
+    <div class="section">Macro mapping editor</div>
+    <div class="tiny">Ziehe Param-Chips auf Macro 1–3. Influence skaliert, wie stark der Makro-Slider den Parameter von seinem Basiswert aus verschiebt.</div>
+    <div class="chip-list" id="chipList" style="margin-top:8px;"></div>
+    <div id="macroZone"></div>
 
-    <div class="control" data-chip="curl">
-      <div class="row">
-        <div class="label"><span class="label-text">Swirl / Curl</span><span class="info" data-tip="Grundstärke der Wirbel. Leistung: mittel.">i</span></div>
-        <span class="value" id="curlValue">1.00</span>
-      </div>
-      <input id="curl" type="range" min="0.00" max="2.00" step="0.01" value="1.00" />
-    </div>
+    <div class="section">Offsets</div>
+    <div class="subhint">Ziehe die 4 Kreuze im Viewport. Doppelklick setzt einzeln zurück.</div>
 
-    <div class="control" data-chip="curlSize">
-      <div class="row">
-        <div class="label"><span class="label-text">Curl Size</span><span class="info" data-tip="Größe der Wirbelradien. Klein = nervöser, groß = breitere Bögen. Leistung: niedrig bis mittel.">i</span></div>
-        <span class="value" id="curlSizeValue">1.00</span>
-      </div>
-      <input id="curlSize" type="range" min="0.50" max="1.80" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="curlCount">
-      <div class="row">
-        <div class="label"><span class="label-text">Curl Count</span><span class="info" data-tip="Zusätzliche Wirbelstationen entlang einer Fahne. Jetzt bis 6. Leistung: mittel bis hoch.">i</span></div>
-        <span class="value" id="curlCountValue">2</span>
-      </div>
-      <input id="curlCount" type="range" min="0.00" max="6.00" step="1.00" value="2.00" />
-      <div class="subhint" id="curlCountHint">pending 2 · applied 2.00</div>
-    </div>
-
-    <div class="control" data-chip="curlDynamics">
-      <div class="row">
-        <div class="label"><span class="label-text">Dynamic Curls</span><span class="info" data-tip="Zeitliche Lebendigkeit der Curl-Positionen. Leistung: mittel.">i</span></div>
-        <span class="value" id="curlDynamicsValue">1.00</span>
-      </div>
-      <input id="curlDynamics" type="range" min="0.00" max="2.00" step="0.01" value="1.00" />
-      <div class="subhint" id="curlDynamicsHint">pending 1.00 · applied 1.00</div>
-    </div>
-
-    <div class="control" data-chip="turbulence">
-      <div class="row">
-        <div class="label"><span class="label-text">Turbulence</span><span class="info" data-tip="Feinere Unruhe in den Konturen. Wirkung bewusst stärker abgestimmt. Leistung: mittel.">i</span></div>
-        <span class="value" id="turbulenceValue">1.00</span>
-      </div>
-      <input id="turbulence" type="range" min="0.00" max="2.20" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="spread">
-      <div class="row">
-        <div class="label"><span class="label-text">Spread</span><span class="info" data-tip="Weiter geöffnet. Jetzt bewusst breiterer Bereich. Leistung: niedrig.">i</span></div>
-        <span class="value" id="spreadValue">1.00</span>
-      </div>
-      <input id="spread" type="range" min="0.35" max="2.20" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="softness">
-      <div class="row">
-        <div class="label"><span class="label-text">Softness</span><span class="info" data-tip="Jetzt mit größerem Bereich. Höher = breiterer, milchigerer Rauchkörper. Leistung: niedrig.">i</span></div>
-        <span class="value" id="softnessValue">1.00</span>
-      </div>
-      <input id="softness" type="range" min="0.40" max="2.20" step="0.01" value="1.00" />
-    </div>
-
-    <div class="section">Edges</div>
-
-    <div class="control" data-chip="edge">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Definition</span><span class="info" data-tip="Gesamte Kantenbetonung. Wirkung jetzt kräftiger abgestimmt. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeValue">1.00</span>
-      </div>
-      <input id="edge" type="range" min="0.20" max="2.40" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="edgeSharpness">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Sharpness</span><span class="info" data-tip="Macht die Edge-Bänder schärfer und den Übergang prägnanter. Jetzt spürbar stärker. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeSharpnessValue">1.00</span>
-      </div>
-      <input id="edgeSharpness" type="range" min="0.40" max="2.80" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="edgeGradient">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Gradient</span><span class="info" data-tip="Verlagert den Kantenverlauf deutlicher von Upper zu Lower Edge entlang der Fahne. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeGradientValue">0.50</span>
-      </div>
-      <input id="edgeGradient" type="range" min="0.00" max="1.00" step="0.01" value="0.50" />
-    </div>
-
-    <div class="control" data-chip="edgeUpper">
-      <div class="row">
-        <div class="label"><span class="label-text">Upper Edge</span><span class="info" data-tip="Separat obere Rauchhaut betonen. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeUpperValue">1.00</span>
-      </div>
-      <input id="edgeUpper" type="range" min="0.00" max="2.40" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="edgeLower">
-      <div class="row">
-        <div class="label"><span class="label-text">Lower Edge</span><span class="info" data-tip="Separat untere Rauchhaut betonen. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeLowerValue">1.00</span>
-      </div>
-      <input id="edgeLower" type="range" min="0.00" max="2.40" step="0.01" value="1.00" />
-    </div>
-
-    <div class="control" data-chip="edgeBreakCount">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Break Count</span><span class="info" data-tip="Unterbrechungen in den langen Kanten. Jetzt 0–8. Pro Fahne leicht versetzt. Leistung: mittel.">i</span></div>
-        <span class="value" id="edgeBreakCountValue">2</span>
-      </div>
-      <input id="edgeBreakCount" type="range" min="0.00" max="8.00" step="1.00" value="2.00" />
-    </div>
-
-    <div class="control" data-chip="edgeBreakStrength">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Break Strength</span><span class="info" data-tip="Wie tief die Breaks in die Kante schneiden. Wirkung jetzt erhalten. Leistung: niedrig.">i</span></div>
-        <span class="value" id="edgeBreakStrengthValue">0.50</span>
-      </div>
-      <input id="edgeBreakStrength" type="range" min="0.00" max="1.40" step="0.01" value="0.50" />
-    </div>
-
-    <div class="control" data-chip="edgeBreakSoftness">
-      <div class="row">
-        <div class="label"><span class="label-text">Edge Break Softness</span><span class="info" data-tip="Weicher, langer Verlauf vom Break zurück in die ungebrochene Kante. Genau für die langen weichen Ausläufe. Leistung: niedrig bis mittel.">i</span></div>
-        <span class="value" id="edgeBreakSoftnessValue">1.00</span>
-      </div>
-      <input id="edgeBreakSoftness" type="range" min="0.20" max="3.00" step="0.01" value="1.00" />
-    </div>
-
-    <div class="section">Color & Performance</div>
-
-    <div class="control" data-chip="redness">
-      <div class="row">
-        <div class="label"><span class="label-text">Red Smoke</span><span class="info" data-tip="Kein Filter. Die eigentliche Rauchpalette wird in rote Körper- und Kantenfarben umgebaut. Leistung: niedrig.">i</span></div>
-        <span class="value" id="rednessValue">0.00</span>
-      </div>
-      <input id="redness" type="range" min="0.00" max="1.00" step="0.01" value="0.00" />
-    </div>
-
-    <div class="control" data-chip="renderScale">
-      <div class="row">
-        <div class="label"><span class="label-text">Render Scale</span><span class="info" data-tip="Stärkster FPS-Hebel. 0.50 ist ungefähr 512×300 bei 1024×600. Leistung: sehr hoch.">i</span></div>
-        <span class="value" id="renderScaleValue">0.50</span>
-      </div>
-      <input id="renderScale" type="range" min="0.30" max="0.80" step="0.01" value="0.50" />
-    </div>
-
-    <div class="section">Strand Positionen</div>
-    <div class="subhint">Ziehe die Kreuze im Viewport. Doppelklick auf ein Kreuz setzt es zurück.</div>
     <div class="actions">
       <button id="resetOffsets">Reset Offsets</button>
+      <button id="downloadConfig">Download smoke_config.json</button>
+      <button id="copyConfig">Copy config JSON</button>
+      <button id="downloadFrag">Download steam_safe.frag</button>
+      <button id="downloadHostNote">Download host note</button>
     </div>
 
-    <div class="section">Macro Slider Bindings</div>
-    <div class="macro-toolbar">
-      <button id="addMacro">Add Macro Slider</button>
-    </div>
-    <div class="tiny">Ziehe die Chips unten auf einen Macro-Slider. Dann steuert der Macro-Slider alle gebundenen Regler gemeinsam.</div>
-    <div class="chip-list" id="chipList"></div>
-    <div class="macro-zone" id="macroZone"></div>
-
-    <div class="actions">
-      <button id="copyFrag">Copy .frag</button>
-      <button id="downloadFrag">Download .frag</button>
-    </div>
-
-    <div class="hint">
-      Exportiert werden alle shaderseitigen Uniforms und Offset-Werte. Nicht exportiert wird nur die Host-Logik:
-      Speed/Curl-Dämpfung, Makro-Bindings, Drag-and-Drop und Render-Scale.
-    </div>
+    <div class="hint">Die HTML previewt denselben Flutter-Shader über einen kleinen WebGL-Adapter. Exportiert werden Shader und JSON-Konfiguration; Makro-/Speed-Smoothing bleibt Host-Logik.</div>
   </div>
 
-  <div class="fps">
+  <div class="perf">
     <div><strong>Performance</strong></div>
     <div>Instant FPS: <span id="fpsInstant">0.0</span></div>
     <div>Avg FPS: <span id="fpsAvg">0.0</span></div>
     <div>Frame ms: <span id="frameMs">0.0</span></div>
     <div>Internal: <span id="fpsRes">512×300</span></div>
     <div>Applied speed: <span id="fpsSpeed">1.00</span></div>
-    <div>Applied curl count: <span id="fpsCurlCount">2.00</span></div>
-    <div>Load estimate: <span id="loadEstimate">0</span>/100</div>
-    <div>Macro bindings: <span id="bindingCount">0</span></div>
+    <div>Macro 1/2/3: <span id="perfMacros">0 / 0 / 0</span></div>
+    <div>Bindings: <span id="bindingCount">0</span></div>
+    <div style="margin-top:8px;">Preview on this machine:</div>
+    <div><span id="liveStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+    <div style="margin-top:8px;">Embedded estimate (Cortex + dedizierte OpenGL2 GPU):</div>
+    <div><span id="embeddedStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+    <div>Estimated load: <span id="embeddedLoad">0</span>/100</div>
+    <div class="perf-note" id="perfNote">Grün = sehr wahrscheinlich unkritisch, Gelb = beobachten/testen, Rot = riskant für dein Zielsystem.</div>
   </div>
 
   <script>
-    const BASE_W = 1024;
-    const BASE_H = 600;
-
-    const PARAMS = {
-      density:           { min: 0.30, max: 1.80, step: 0.01, shader: true },
-      speed:             { min: 0.10, max: 2.40, step: 0.01, shader: false },
-      curl:              { min: 0.00, max: 2.00, step: 0.01, shader: true },
-      curlSize:          { min: 0.50, max: 1.80, step: 0.01, shader: true },
-      curlCount:         { min: 0.00, max: 6.00, step: 1.00, shader: true },
-      curlDynamics:      { min: 0.00, max: 2.00, step: 0.01, shader: true },
-      turbulence:        { min: 0.00, max: 2.20, step: 0.01, shader: true },
-      spread:            { min: 0.35, max: 2.20, step: 0.01, shader: true },
-      softness:          { min: 0.40, max: 2.20, step: 0.01, shader: true },
-      edge:              { min: 0.20, max: 2.40, step: 0.01, shader: true },
-      edgeSharpness:     { min: 0.40, max: 2.80, step: 0.01, shader: true },
-      edgeGradient:      { min: 0.00, max: 1.00, step: 0.01, shader: true },
-      edgeUpper:         { min: 0.00, max: 2.40, step: 0.01, shader: true },
-      edgeLower:         { min: 0.00, max: 2.40, step: 0.01, shader: true },
-      edgeBreakCount:    { min: 0.00, max: 8.00, step: 1.00, shader: true },
-      edgeBreakStrength: { min: 0.00, max: 1.40, step: 0.01, shader: true },
-      edgeBreakSoftness: { min: 0.20, max: 3.00, step: 0.01, shader: true },
-      redness:           { min: 0.00, max: 1.00, step: 0.01, shader: true },
-      renderScale:       { min: 0.30, max: 0.80, step: 0.01, shader: false },
-    };
-
-    const canvas = document.getElementById("gl");
-    const overlay = document.getElementById("overlay");
-    const gl = canvas.getContext("webgl", {
-      antialias: false, alpha: false, depth: false, stencil: false, preserveDrawingBuffer: false,
-    });
-
-    if (!gl) {
-      alert("WebGL wird in diesem Browser nicht unterstützt.");
-      throw new Error("WebGL not supported");
-    }
-
-    const vertexSrc = `
-      attribute vec2 aPosition;
-      void main() {
-        gl_Position = vec4(aPosition, 0.0, 1.0);
-      }
-    `;
-
-    function buildFrag(forFlutter = false) {
-      const header = forFlutter
-? `#version 460 core
+    const PARAM_SPECS = {"density": {"min": 0.3, "max": 1.8, "step": 0.01}, "speed": {"min": 0.1, "max": 2.4, "step": 0.01}, "curl": {"min": 0.0, "max": 2.0, "step": 0.01}, "curlSize": {"min": 0.5, "max": 1.8, "step": 0.01}, "curlCount": {"min": 0.0, "max": 6.0, "step": 1.0}, "curlDynamics": {"min": 0.0, "max": 2.0, "step": 0.01}, "turbulence": {"min": 0.0, "max": 2.2, "step": 0.01}, "edge": {"min": 0.2, "max": 2.4, "step": 0.01}, "edgeUpper": {"min": 0.0, "max": 2.4, "step": 0.01}, "edgeLower": {"min": 0.0, "max": 2.4, "step": 0.01}, "edgeSharpness": {"min": 0.4, "max": 2.8, "step": 0.01}, "edgeGradient": {"min": 0.0, "max": 1.0, "step": 0.01}, "edgeBreakCount": {"min": 0.0, "max": 8.0, "step": 1.0}, "edgeBreakStrength": {"min": 0.0, "max": 1.4, "step": 0.01}, "edgeBreakSoftness": {"min": 0.2, "max": 3.0, "step": 0.01}, "softness": {"min": 0.4, "max": 2.2, "step": 0.01}, "spread": {"min": 0.35, "max": 2.2, "step": 0.01}, "redness": {"min": 0.0, "max": 1.0, "step": 0.01}, "edgeUpperThin": {"min": 0.15, "max": 2.0, "step": 0.01}, "edgeLowerThin": {"min": 0.15, "max": 2.0, "step": 0.01}};
+    const DEFAULT_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "curlSize": 1.0, "curlCount": 2.0, "curlDynamics": 1.0, "turbulence": 1.0, "edge": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0, "softness": 1.0, "spread": 1.0, "redness": 0.0, "edgeUpperThin": 1.0, "edgeLowerThin": 1.0}, "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "redness": 0.75, "edgeUpperThin": -0.25, "edgeLowerThin": -0.25}}]};
+    const FLUTTER_FRAG = `#version 460 core
 #include <flutter/runtime_effect.glsl>
 
 precision mediump float;
+
 out vec4 fragColor;
 
-uniform vec2 uResolution;         // 0,1
-uniform float uTime;              // 2  (integrated host time)
-uniform float uDensity;           // 3
-uniform float uCurl;              // 4
-uniform float uTurbulence;        // 5
-uniform float uEdge;              // 6
-uniform float uSoftness;          // 7
-uniform float uSpread;            // 8
-uniform float uRedness;           // 9
-uniform float uCurlSize;          // 10
-uniform float uCurlCount;         // 11
-uniform float uCurlDynamics;      // 12
-uniform float uEdgeUpper;         // 13
-uniform float uEdgeLower;         // 14
-uniform float uEdgeSharpness;     // 15
-uniform float uEdgeGradient;      // 16
-uniform float uEdgeBreakCount;    // 17
-uniform float uEdgeBreakStrength; // 18
-uniform float uEdgeBreakSoftness; // 19
-uniform vec2 uOff1;               // 20,21
-uniform vec2 uOff2;               // 22,23
-uniform vec2 uOff3;               // 24,25
-uniform vec2 uOff4;               // 26,27
-`
-: `precision mediump float;
+uniform vec2 uResolution;          // 0,1
+uniform float uTime;               // 2
+uniform float uDensity;            // 3
+uniform float uCurl;               // 4
+uniform float uCurlSize;           // 5
+uniform float uCurlCount;          // 6
+uniform float uCurlDynamics;       // 7
+uniform float uTurbulence;         // 8
+uniform float uEdge;               // 9
+uniform float uEdgeUpper;          // 10
+uniform float uEdgeLower;          // 11
+uniform float uEdgeUpperThin;      // 12
+uniform float uEdgeLowerThin;      // 13
+uniform float uEdgeSharpness;      // 14
+uniform float uEdgeGradient;       // 13
+uniform float uEdgeBreakCount;     // 14
+uniform float uEdgeBreakStrength;  // 15
+uniform float uEdgeBreakSoftness;  // 16
+uniform float uSoftness;           // 17
+uniform float uSpread;             // 18
+uniform float uRedness;            // 19
+uniform vec2 uOff1;                // 20,21
+uniform vec2 uOff2;                // 22,23
+uniform vec2 uOff3;                // 24,25
+uniform vec2 uOff4;                // 26,27
 
-uniform vec2 uResolution;
-uniform float uTime;
-uniform float uDensity;
-uniform float uCurl;
-uniform float uTurbulence;
-uniform float uEdge;
-uniform float uSoftness;
-uniform float uSpread;
-uniform float uRedness;
-uniform float uCurlSize;
-uniform float uCurlCount;
-uniform float uCurlDynamics;
-uniform float uEdgeUpper;
-uniform float uEdgeLower;
-uniform float uEdgeSharpness;
-uniform float uEdgeGradient;
-uniform float uEdgeBreakCount;
-uniform float uEdgeBreakStrength;
-uniform float uEdgeBreakSoftness;
-uniform vec2 uOff1;
-uniform vec2 uOff2;
-uniform vec2 uOff3;
-uniform vec2 uOff4;
-`;
-      const fragCoordLine = forFlutter ? `vec2 fragCoord = FlutterFragCoord().xy;` : `vec2 fragCoord = gl_FragCoord.xy;`;
-      const outLine = forFlutter ? `fragColor = vec4(col, 1.0);` : `gl_FragColor = vec4(col, 1.0);`;
-
-      return `${header}
 float hash21(vec2 p) {
   p = fract(p * vec2(0.1031, 0.11369));
   p += dot(p, p.yx + 19.19);
   return fract((p.x + p.y) * p.x);
 }
 
-float noise(vec2 p) {
+float noise2(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
@@ -494,8 +215,8 @@ float noise(vec2 p) {
 }
 
 float n2(vec2 p) {
-  float a = noise(p);
-  float b = noise(p * 2.03 + vec2(7.1, 3.4));
+  float a = noise2(p);
+  float b = noise2(p * 2.03 + vec2(7.1, 3.4));
   return mix(a, b, 0.35);
 }
 
@@ -510,62 +231,85 @@ vec2 swirl(vec2 p, vec2 center, float radius, float strength) {
   float r = length(d);
   float w = 1.0 - smoothstep(radius * 0.28, radius, r);
   float a = strength * w * (0.40 + 0.60 * (1.0 - clamp(r / radius, 0.0, 1.0)));
-  d = rot(a) * d;
-  return center + d;
+  return center + rot(a) * d;
 }
 
-float breakMask(float x, float seed) {
-  if (uEdgeBreakCount < 0.5 || uEdgeBreakStrength <= 0.001) return 0.0;
+float edgeBreakMask(float x, float seed, float count, float strength, float softness) {
+  if (strength <= 0.0001 || count <= 0.0) return 0.0;
 
   float m = 0.0;
-  float count = uEdgeBreakCount;
-  float baseWidth = mix(0.015, 0.055, clamp(uEdgeBreakStrength / 1.4, 0.0, 1.0));
-  float soft = mix(0.04, 0.22, clamp(uEdgeBreakSoftness / 3.0, 0.0, 1.0));
+  float width = mix(0.012, 0.055, clamp(strength / 1.4, 0.0, 1.0));
+  float feather = mix(0.025, 0.30, clamp((softness - 0.2) / 2.8, 0.0, 1.0));
 
   for (int i = 0; i < 8; i++) {
-    if (float(i) >= count) break;
     float fi = float(i);
-    float center = 0.18 + (fi + 0.5) / max(count, 1.0) * 1.85;
-    center += sin(seed * 17.0 + fi * 7.1) * 0.06;
-    float d = abs(x - center);
-    float notch = 1.0 - smoothstep(baseWidth, baseWidth + soft, d);
-    m = max(m, notch);
+    float active = step(fi + 0.5, count);
+    float center = 0.16 + (fi + 0.55) / 8.0 * 1.90;
+    center += sin(seed * 17.0 + fi * 7.1) * 0.055;
+    float notch = 1.0 - smoothstep(width, width + feather, abs(x - center));
+    m = max(m, notch * active);
   }
-  return m;
+  return clamp(m, 0.0, 1.0);
 }
 
-vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbulence, float spread, float softness) {
-  vec2 q = p - src;
+vec3 strandEval(
+  vec2 p,
+  vec2 src,
+  vec2 off,
+  float t,
+  float seed,
+  float curl,
+  float curlSize,
+  float curlCount,
+  float curlDynamics,
+  float turbulence,
+  float spread,
+  float softness,
+  float edgeUpper,
+  float edgeLower,
+  float edgeUpperThin,
+  float edgeLowerThin,
+  float edgeSharpness,
+  float edgeGradient,
+  float edgeBreakCount,
+  float edgeBreakStrength,
+  float edgeBreakSoftness
+) {
+  vec2 q = p - src - off;
   float x = q.x;
   if (x <= 0.0) return vec3(0.0);
 
-  q.y *= 1.0 / mix(1.0, 1.30, spread - 1.0);
+  q.y *= 1.0 / mix(1.0, 1.32, clamp(spread - 1.0, -0.5, 1.2));
 
-  float dyn = uCurlDynamics;
-  float size = uCurlSize;
-  float count = uCurlCount;
+  float dyn = max(0.001, curlDynamics);
+  float size = curlSize;
 
-  q = swirl(q, vec2(0.52 + 0.05 * sin(t * 0.21 * dyn + seed * 3.1), -0.03 + 0.04 * sin(t * 0.17 * dyn + seed * 1.4)), 0.16 * size * mix(0.9, 1.2, spread), 0.92 * curl);
-  q = swirl(q, vec2(0.98 + 0.04 * sin(t * 0.15 * dyn + seed * 4.2), 0.04 + 0.03 * sin(t * 0.13 * dyn + seed * 2.4)), 0.14 * size * mix(0.9, 1.2, spread), -1.06 * curl);
+  q = swirl(
+    q,
+    vec2(0.52 + 0.05 * sin(t * 0.21 * dyn + seed * 3.1), -0.03 + 0.04 * sin(t * 0.17 * dyn + seed * 1.4)),
+    0.16 * size * mix(0.9, 1.2, spread),
+    0.92 * curl
+  );
+  q = swirl(
+    q,
+    vec2(0.98 + 0.04 * sin(t * 0.15 * dyn + seed * 4.2), 0.04 + 0.03 * sin(t * 0.13 * dyn + seed * 2.4)),
+    0.14 * size * mix(0.9, 1.2, spread),
+    -1.06 * curl
+  );
 
-  if (count > 0.5) {
-    q = swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, spread), 0.78 * curl);
-  }
-  if (count > 1.5) {
-    q = swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, spread), -0.72 * curl);
-  }
-  if (count > 2.5) {
-    q = swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, spread), 0.58 * curl);
-  }
-  if (count > 3.5) {
-    q = swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, spread), -0.46 * curl);
-  }
-  if (count > 4.5) {
-    q = swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, spread), 0.52 * curl);
-  }
-  if (count > 5.5) {
-    q = swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, spread), -0.38 * curl);
-  }
+  float c1 = step(0.5, curlCount);
+  float c2 = step(1.5, curlCount);
+  float c3 = step(2.5, curlCount);
+  float c4 = step(3.5, curlCount);
+  float c5 = step(4.5, curlCount);
+  float c6 = step(5.5, curlCount);
+
+  q = mix(q, swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, spread), 0.78 * curl), c1);
+  q = mix(q, swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, spread), -0.72 * curl), c2);
+  q = mix(q, swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, spread), 0.58 * curl), c3);
+  q = mix(q, swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, spread), -0.46 * curl), c4);
+  q = mix(q, swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, spread), 0.52 * curl), c5);
+  q = mix(q, swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, spread), -0.38 * curl), c6);
 
   float centerLine =
       -0.14 * x
@@ -577,38 +321,44 @@ vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbule
   float ad = abs(y);
 
   float w = mix(0.018, 0.072, smoothstep(0.0, 1.52, x));
-  w *= mix(0.82, 1.34, softness);
-  w *= mix(0.80, 1.34, spread);
+  w *= mix(0.80, 1.36, clamp((softness - 0.4) / 1.8, 0.0, 1.0));
+  w *= mix(0.82, 1.34, clamp((spread - 0.35) / 1.85, 0.0, 1.0));
 
   float body = 1.0 - smoothstep(w * 0.10, w * 0.92, ad);
   float veil = 1.0 - smoothstep(w * 0.92, w * 2.60, ad);
 
-  float sharp = mix(0.55, 1.95, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));
-  float upperInner = mix(0.08, 0.30, sharp);
-  float upperOuter = mix(0.55, 0.92, sharp);
-  float lowerInner = mix(0.08, 0.30, sharp);
-  float lowerOuter = mix(0.55, 0.92, sharp);
+  float sharp = mix(0.40, 2.10, clamp((edgeSharpness - 0.4) / 2.4, 0.0, 1.0));
+  float bandInner = mix(0.10, 0.32, sharp);
+  float bandOuter = mix(0.48, 0.90, sharp);
 
-  float upperBand = smoothstep(w * upperInner, w * upperInner + w * 0.28, y) * (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));
-  float lowerBand = smoothstep(w * lowerInner, w * lowerInner + w * 0.28, -y) * (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));
+  float upperThin = mix(0.22, 1.90, clamp((edgeUpperThin - 0.15) / 1.85, 0.0, 1.0));
+  float lowerThin = mix(0.22, 1.90, clamp((edgeLowerThin - 0.15) / 1.85, 0.0, 1.0));
+
+  float upperBand =
+      smoothstep(w * bandInner * upperThin, w * (bandInner * upperThin + 0.14 * upperThin), y) *
+      (1.0 - smoothstep(w * bandOuter * upperThin, w * (bandOuter * upperThin + 0.11 * upperThin), y));
+
+  float lowerBand =
+      smoothstep(w * bandInner * lowerThin, w * (bandInner * lowerThin + 0.14 * lowerThin), -y) *
+      (1.0 - smoothstep(w * bandOuter * lowerThin, w * (bandOuter * lowerThin + 0.11 * lowerThin), -y));
 
   float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));
   edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);
   float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));
   edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);
 
-  float grad = clamp((x / 2.15) + (uEdgeGradient - 0.5), 0.0, 1.0);
-  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);
-  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);
+  float grad = clamp((x / 2.10) + (edgeGradient - 0.5), 0.0, 1.0);
+  float upperWeight = mix(edgeUpper, edgeLower, grad);
+  float lowerWeight = mix(edgeLower, edgeUpper, grad);
 
-  float breaksUpper = breakMask(x, seed + 0.31);
-  float breaksLower = breakMask(x, seed + 1.73);
+  float breakU = edgeBreakMask(x, seed + 0.31, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  float breakL = edgeBreakMask(x, seed + 1.73, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
 
   float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));
   bodyNoise = smoothstep(0.20, 0.88, bodyNoise);
 
-  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breaksUpper * uEdgeBreakStrength);
-  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breaksLower * uEdgeBreakStrength);
+  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breakU * edgeBreakStrength);
+  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breakL * edgeBreakStrength);
   float edgeMix = upperEdge + lowerEdge;
 
   float fade = smoothstep(0.0, 0.08, x);
@@ -618,11 +368,31 @@ vec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbule
   float density = (body * 0.25 + veil * 0.11 + edgeMix * 0.45) * bodyNoise * fade;
   float edgeWeight = edgeMix * fade;
   float mist = veil * 0.08 * fade;
-
   return vec3(density, edgeWeight, mist);
 }
 
-vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float turbulence, float spread, float softness) {
+vec3 smokeSide(
+  vec2 p,
+  float side,
+  float t,
+  float densityCtrl,
+  float curl,
+  float curlSize,
+  float curlCount,
+  float curlDynamics,
+  float turbulence,
+  float spread,
+  float softness,
+  float edgeUpper,
+  float edgeLower,
+  float edgeUpperThin,
+  float edgeLowerThin,
+  float edgeSharpness,
+  float edgeGradient,
+  float edgeBreakCount,
+  float edgeBreakStrength,
+  float edgeBreakSoftness
+) {
   vec2 pp = p;
   pp.x *= -side;
 
@@ -633,10 +403,10 @@ vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float
   float localSpread = mix(0.90, 1.34, smoothstep(0.50, 1.55, densityCtrl)) * spread;
   float localSoft = mix(0.92, 1.18, smoothstep(0.45, 1.55, densityCtrl)) * softness;
 
-  vec3 a = strandEval(pp - uOff1 * vec2(-side, 1.0),                     vec2(-1.04, -0.10), t,            0.19 + side * 0.11, curl, turbulence, localSpread, localSoft);
-  vec3 b = strandEval(pp + vec2(0.0, 0.03) - uOff2 * vec2(-side, 1.0),   vec2(-1.08,  0.00), t * 0.96 + 2.6, 0.57 + side * 0.07, curl, turbulence, localSpread, localSoft);
-  vec3 c = strandEval(pp + vec2(0.0, -0.04) - uOff3 * vec2(-side, 1.0),  vec2(-1.11,  0.09), t * 1.03 + 4.1, 0.91 + side * 0.05, curl * 1.02, turbulence, localSpread, localSoft);
-  vec3 d = strandEval(pp + vec2(0.0, 0.06) - uOff4 * vec2(-side, 1.0),   vec2(-1.14, -0.18), t * 0.90 + 6.7, 1.29 + side * 0.09, curl * 0.92, turbulence, localSpread, localSoft);
+  vec3 a = strandEval(pp,                     vec2(-1.04, -0.10), uOff1 * vec2(-side, 1.0), t,            0.19 + side * 0.11, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  vec3 b = strandEval(pp + vec2(0.0, 0.03),  vec2(-1.08,  0.00), uOff2 * vec2(-side, 1.0), t * 0.96 + 2.6, 0.57 + side * 0.07, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  vec3 c = strandEval(pp + vec2(0.0, -0.04), vec2(-1.11,  0.09), uOff3 * vec2(-side, 1.0), t * 1.03 + 4.1, 0.91 + side * 0.05, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
+  vec3 d = strandEval(pp + vec2(0.0, 0.06),  vec2(-1.14, -0.18), uOff4 * vec2(-side, 1.0), t * 0.90 + 6.7, 1.29 + side * 0.09, curl, curlSize, curlCount, curlDynamics, turbulence, localSpread, localSoft, edgeUpper, edgeLower, edgeUpperThin, edgeLowerThin, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness);
 
   float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;
   float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;
@@ -645,17 +415,21 @@ vec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float
 }
 
 void main() {
-  ${fragCoordLine}
+  vec2 fragCoord = FlutterFragCoord().xy;
   vec2 uv = fragCoord / uResolution;
   vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;
   float t = uTime;
 
-  vec3 bg = mix(vec3(0.028, 0.030, 0.034), vec3(0.11, 0.11, 0.11), smoothstep(-0.82, 0.92, p.y));
+  vec3 bg = mix(
+    vec3(0.028, 0.030, 0.034),
+    vec3(0.11, 0.11, 0.11),
+    smoothstep(-0.82, 0.92, p.y)
+  );
   bg += 0.040 * exp(-2.4 * dot(p - vec2(-0.34, 0.02), p - vec2(-0.34, 0.02)));
   bg += 0.012 * exp(-4.0 * dot(p - vec2(0.18, 0.10), p - vec2(0.18, 0.10)));
 
-  vec3 left  = smokeSide(p, -1.0, t,       uDensity, uCurl, uTurbulence, uSpread, uSoftness);
-  vec3 right = smokeSide(p,  1.0, t + 1.1, uDensity, uCurl, uTurbulence, uSpread, uSoftness);
+  vec3 left  = smokeSide(p, -1.0, t,       uDensity, uCurl, uCurlSize, uCurlCount, uCurlDynamics, uTurbulence, uSpread, uSoftness, uEdgeUpper, uEdgeLower, uEdgeUpperThin, uEdgeLowerThin, uEdgeSharpness, uEdgeGradient, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
+  vec3 right = smokeSide(p,  1.0, t + 1.1, uDensity, uCurl, uCurlSize, uCurlCount, uCurlDynamics, uTurbulence, uSpread, uSoftness, uEdgeUpper, uEdgeLower, uEdgeUpperThin, uEdgeLowerThin, uEdgeSharpness, uEdgeGradient, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);
 
   float density = left.x + right.x;
   float edge = left.y + right.y;
@@ -681,241 +455,393 @@ void main() {
 
   vec3 bodyColor = mix(neutralBodyA, neutralBodyB, tone);
   vec3 edgeColor = neutralEdge;
-
   vec3 redBody = mix(redBodyA, redBodyB, tone);
-  vec3 redEdgeColor = redEdge;
 
   bodyColor = mix(bodyColor, redBody, uRedness);
-  edgeColor = mix(edgeColor, redEdgeColor, uRedness);
+  edgeColor = mix(edgeColor, redEdge, uRedness);
 
   vec3 smokeColor = mix(bodyColor, edgeColor, edgeRatio);
 
   vec3 col = mix(bg, smokeColor, alpha);
-
   float vignette = smoothstep(1.24, 0.28, length(uv - 0.5));
   col *= vignette;
 
-  ${outLine}
-}`;
+  fragColor = vec4(col, 1.0);
+}
+`;
+
+    function adaptFlutterToWeb(src) {
+      return src
+        .replace('#version 460 core\n#include <flutter/runtime_effect.glsl>\n\n', '')
+        .replace('out vec4 fragColor;\n\n', '')
+        .replaceAll('FlutterFragCoord().xy', 'gl_FragCoord.xy')
+        .replaceAll('fragColor = vec4(col, 1.0);', 'gl_FragColor = vec4(col, 1.0);');
     }
 
-    function createShader(gl, type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        const info = gl.getShaderInfoLog(shader);
-        gl.deleteShader(shader);
-        throw new Error(info);
-      }
-      return shader;
-    }
+    const WEB_FRAG = adaptFlutterToWeb(FLUTTER_FRAG);
+    const canvas = document.getElementById('gl');
+    const overlay = document.getElementById('overlay');
+    const gl = canvas.getContext('webgl', { antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false });
+    if (!gl) throw new Error('WebGL not supported');
 
-    function createProgram(gl, vsSource, fsSource) {
-      const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
-      const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    const vertexSrc = `attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition, 0.0, 1.0); }`;
+
+    function createShader(gl, type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+    function createProgram(gl, vs, fs) {
       const p = gl.createProgram();
-      gl.attachShader(p, vs);
-      gl.attachShader(p, fs);
+      gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vs));
+      gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fs));
       gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-        const info = gl.getProgramInfoLog(p);
-        gl.deleteProgram(p);
-        throw new Error(info);
-      }
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
       return p;
     }
-
-    const program = createProgram(gl, vertexSrc, buildFrag(false));
+    const program = createProgram(gl, vertexSrc, WEB_FRAG);
     gl.useProgram(program);
 
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1, 1, -1, -1, 1,
-      -1,  1, 1, -1,  1, 1
+      -1,-1, 1,-1, -1,1,
+      -1,1, 1,-1, 1,1
     ]), gl.STATIC_DRAW);
-
-    const aPosition = gl.getAttribLocation(program, "aPosition");
+    const aPosition = gl.getAttribLocation(program, 'aPosition');
     gl.enableVertexAttribArray(aPosition);
     gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
 
-    const uniforms = {
-      uResolution: gl.getUniformLocation(program, "uResolution"),
-      uTime: gl.getUniformLocation(program, "uTime"),
-      uDensity: gl.getUniformLocation(program, "uDensity"),
-      uCurl: gl.getUniformLocation(program, "uCurl"),
-      uTurbulence: gl.getUniformLocation(program, "uTurbulence"),
-      uEdge: gl.getUniformLocation(program, "uEdge"),
-      uSoftness: gl.getUniformLocation(program, "uSoftness"),
-      uSpread: gl.getUniformLocation(program, "uSpread"),
-      uRedness: gl.getUniformLocation(program, "uRedness"),
-      uCurlSize: gl.getUniformLocation(program, "uCurlSize"),
-      uCurlCount: gl.getUniformLocation(program, "uCurlCount"),
-      uCurlDynamics: gl.getUniformLocation(program, "uCurlDynamics"),
-      uEdgeUpper: gl.getUniformLocation(program, "uEdgeUpper"),
-      uEdgeLower: gl.getUniformLocation(program, "uEdgeLower"),
-      uEdgeSharpness: gl.getUniformLocation(program, "uEdgeSharpness"),
-      uEdgeGradient: gl.getUniformLocation(program, "uEdgeGradient"),
-      uEdgeBreakCount: gl.getUniformLocation(program, "uEdgeBreakCount"),
-      uEdgeBreakStrength: gl.getUniformLocation(program, "uEdgeBreakStrength"),
-      uEdgeBreakSoftness: gl.getUniformLocation(program, "uEdgeBreakSoftness"),
-      uOff1: gl.getUniformLocation(program, "uOff1"),
-      uOff2: gl.getUniformLocation(program, "uOff2"),
-      uOff3: gl.getUniformLocation(program, "uOff3"),
-      uOff4: gl.getUniformLocation(program, "uOff4"),
+    const u = {
+      res: gl.getUniformLocation(program,'uResolution'),
+      time: gl.getUniformLocation(program,'uTime'),
+      density: gl.getUniformLocation(program,'uDensity'),
+      curl: gl.getUniformLocation(program,'uCurl'),
+      curlSize: gl.getUniformLocation(program,'uCurlSize'),
+      curlCount: gl.getUniformLocation(program,'uCurlCount'),
+      curlDynamics: gl.getUniformLocation(program,'uCurlDynamics'),
+      turbulence: gl.getUniformLocation(program,'uTurbulence'),
+      edge: gl.getUniformLocation(program,'uEdge'),
+      edgeUpper: gl.getUniformLocation(program,'uEdgeUpper'),
+      edgeLower: gl.getUniformLocation(program,'uEdgeLower'),
+      edgeUpperThin: gl.getUniformLocation(program,'uEdgeUpperThin'),
+      edgeLowerThin: gl.getUniformLocation(program,'uEdgeLowerThin'),
+      edgeSharpness: gl.getUniformLocation(program,'uEdgeSharpness'),
+      edgeGradient: gl.getUniformLocation(program,'uEdgeGradient'),
+      edgeBreakCount: gl.getUniformLocation(program,'uEdgeBreakCount'),
+      edgeBreakStrength: gl.getUniformLocation(program,'uEdgeBreakStrength'),
+      edgeBreakSoftness: gl.getUniformLocation(program,'uEdgeBreakSoftness'),
+      softness: gl.getUniformLocation(program,'uSoftness'),
+      spread: gl.getUniformLocation(program,'uSpread'),
+      redness: gl.getUniformLocation(program,'uRedness'),
+      off1: gl.getUniformLocation(program,'uOff1'),
+      off2: gl.getUniformLocation(program,'uOff2'),
+      off3: gl.getUniformLocation(program,'uOff3'),
+      off4: gl.getUniformLocation(program,'uOff4')
     };
 
-    const controls = {};
-    const values = {};
-    Object.keys(PARAMS).forEach(name => {
-      controls[name] = document.getElementById(name);
-      values[name] = document.getElementById(name + "Value");
+    const state = structuredClone(DEFAULT_CONFIG);
+    const runtime = {
+      macroPending: [0,0,0],
+      macroTarget: [0,0,0],
+      macroApplied: [0,0,0],
+      speedPending: state.baseParams.speed || 1.0,
+      speedTarget: state.baseParams.speed || 1.0,
+      speedApplied: state.baseParams.speed || 1.0,
+      renderScale: 0.50
+    };
+
+    const fpsEls = {
+      instant: document.getElementById('fpsInstant'),
+      avg: document.getElementById('fpsAvg'),
+      ms: document.getElementById('frameMs'),
+      res: document.getElementById('fpsRes'),
+      speed: document.getElementById('fpsSpeed'),
+      macros: document.getElementById('perfMacros'),
+      bindings: document.getElementById('bindingCount')
+    };
+    const liveStatusEl = document.getElementById('liveStatus');
+    const embeddedStatusEl = document.getElementById('embeddedStatus');
+    const embeddedLoadEl = document.getElementById('embeddedLoad');
+    const perfNoteEl = document.getElementById('perfNote');
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+    function setBaseParam(name, value) {
+      const spec = PARAM_SPECS[name];
+      state.baseParams[name] = clamp(value, spec.min, spec.max);
+    }
+
+    function updateSpeedHint() {
+      document.getElementById('speedHint').textContent =
+        `speed pending ${runtime.speedPending.toFixed(2)} · applied ${runtime.speedApplied.toFixed(2)}`;
+    }
+
+    function resolveRuntimeParams() {
+      const out = Object.assign({}, state.baseParams);
+      for (let i = 0; i < 3; i++) {
+        const macroNorm = clamp(runtime.macroApplied[i] / 100.0, 0, 1);
+        const bindings = state.macros[i].bindings || {};
+        for (const [name, influence] of Object.entries(bindings)) {
+          const spec = PARAM_SPECS[name];
+          if (!spec) continue;
+          const base = state.baseParams[name];
+          out[name] = clamp(base + macroNorm * influence * (spec.max - spec.min), spec.min, spec.max);
+        }
+      }
+      out.speed = runtime.speedApplied;
+      return out;
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportConfig() {
+      return JSON.stringify(state, null, 2);
+    }
+
+    function buildHostNote() {
+      return [
+        'Use the provided lib/main.dart and assets/smoke_config.json with shaders/steam_safe.frag.',
+        '',
+        'The runtime only needs Macro 1..3 plus Speed.',
+        'The HTML and Flutter host resolve the same mapping:',
+        'resolvedParam = base + macroNorm * influence * (max-min)',
+        '',
+        exportConfig()
+      ].join('\n');
+    }
+
+    document.getElementById('downloadConfig').addEventListener('click', () => downloadText('smoke_config.json', exportConfig()));
+    document.getElementById('downloadFrag').addEventListener('click', () => downloadText('steam_safe.frag', FLUTTER_FRAG));
+    document.getElementById('downloadHostNote').addEventListener('click', () => downloadText('flutter_host_note.txt', buildHostNote()));
+    document.getElementById('copyConfig').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(exportConfig());
+      } catch (e) {
+        console.error(e);
+      }
     });
 
-    const fpsInstantEl = document.getElementById("fpsInstant");
-    const fpsAvgEl = document.getElementById("fpsAvg");
-    const frameMsEl = document.getElementById("frameMs");
-    const fpsResEl = document.getElementById("fpsRes");
-    const fpsSpeedEl = document.getElementById("fpsSpeed");
-    const fpsCurlCountEl = document.getElementById("fpsCurlCount");
-    const loadEstimateEl = document.getElementById("loadEstimate");
-    const bindingCountEl = document.getElementById("bindingCount");
-    const speedHint = document.getElementById("speedHint");
-    const curlCountHint = document.getElementById("curlCountHint");
-    const curlDynamicsHint = document.getElementById("curlDynamicsHint");
+    const runtimeMacrosEl = document.getElementById('runtimeMacros');
+    const controlsEl = document.getElementById('controls');
+    function infoTip(name) {
+      const tips = {
+        density:'Mehr Rauch schaltet zusätzliche Fahnen und mehr Volumen zu.',
+        speed:'Wird host-seitig geglättet. Der Shader bekommt nur uTime.',
+        curl:'Grundstärke der Wirbel.',
+        curlSize:'Größe der Wirbel.',
+        curlCount:'Zusätzliche feste Wirbelstationen. Höher = mehr Detail.',
+        curlDynamics:'Zeitliche Lebendigkeit der Wirbelpositionen.',
+        turbulence:'Feinere Unruhe in Kontur und Körper.',
+        edge:'Gesamte Kantenbetonung.',
+        edgeUpper:'Obere Kante separat.',
+        edgeLower:'Untere Kante separat.',
+        edgeUpperThin:'Macht die obere Kante sehr dünn oder breiter. Niedriger = dünner.',
+        edgeLowerThin:'Macht die untere Kante sehr dünn oder breiter. Niedriger = dünner.',
+        edgeSharpness:'Schärfe/Prägnanz der Edge-Bänder.',
+        edgeGradient:'Verlauf der Kantenbetonung entlang der Fahne.',
+        edgeBreakCount:'Anzahl der Edge-Unterbrechungen.',
+        edgeBreakStrength:'Wie tief die Breaks in die Kante schneiden.',
+        edgeBreakSoftness:'Wie weich/lang die Breaks in die volle Kante zurücklaufen.',
+        softness:'Breiterer, milchigerer Körper.',
+        spread:'Öffnet die Fahnen im Raum.',
+        redness:'Echte rote Rauchpalette.'
+      };
+      return tips[name] || '';
+    }
 
-    const state = {};
-    Object.keys(PARAMS).forEach(name => {
-      const init = parseFloat(controls[name].value);
-      state[name] = { target: init, applied: init, pending: init };
-    });
+    function renderControls() {
+      controlsEl.innerHTML = '';
 
-    state.speed.target = state.speed.applied = state.speed.pending;
-    state.curlCount.target = state.curlCount.applied = state.curlCount.pending;
-    state.curlDynamics.target = state.curlDynamics.applied = state.curlDynamics.pending;
+      const speedWrap = document.createElement('div');
+      speedWrap.className = 'control';
+      speedWrap.innerHTML = `
+        <div class="row">
+          <div class="label"><span>speed</span><span class="info" data-tip="Pending beim Ziehen, erst beim Loslassen übernommen.">i</span></div>
+          <span class="value">${runtime.speedPending.toFixed(2)}</span>
+        </div>
+        <input type="range" min="${PARAM_SPECS.speed.min}" max="${PARAM_SPECS.speed.max}" step="${PARAM_SPECS.speed.step}" value="${runtime.speedPending}">
+      `;
+      controlsEl.appendChild(speedWrap);
+      const speedSlider = speedWrap.querySelector('input');
+      speedSlider.addEventListener('input', () => {
+        runtime.speedPending = parseFloat(speedSlider.value);
+        speedWrap.querySelector('.value').textContent = runtime.speedPending.toFixed(2);
+        updateSpeedHint();
+      });
+      const commit = () => { runtime.speedTarget = runtime.speedPending; };
+      speedSlider.addEventListener('change', commit);
+      speedSlider.addEventListener('pointerup', commit);
+      speedSlider.addEventListener('touchend', commit);
 
-    const smoothedOnCommit = new Set(["speed", "curlCount", "curlDynamics"]);
-    const liveSmoothed = new Set([
-      "density","curl","curlSize","turbulence","spread","softness","edge","edgeSharpness","edgeGradient",
-      "edgeUpper","edgeLower","edgeBreakCount","edgeBreakStrength","edgeBreakSoftness","redness"
-    ]);
+      for (const [name, spec] of Object.entries(PARAM_SPECS)) {
+        if (name === 'speed') continue;
+        const wrap = document.createElement('div');
+        wrap.className = 'control';
+        wrap.innerHTML = `
+          <div class="row">
+            <div class="label"><span>${name}</span><span class="info" data-tip="${infoTip(name)}">i</span></div>
+            <span class="value">${Number(state.baseParams[name]).toFixed(spec.step >= 1 ? 0 : 2)}</span>
+          </div>
+          <input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="${state.baseParams[name]}">
+        `;
+        const slider = wrap.querySelector('input');
+        const valEl = wrap.querySelector('.value');
+        slider.addEventListener('input', () => {
+          setBaseParam(name, parseFloat(slider.value));
+          valEl.textContent = Number(state.baseParams[name]).toFixed(spec.step >= 1 ? 0 : 2);
+        });
+        controlsEl.appendChild(wrap);
+      }
+    }
 
-    const strandOffsets = [
-      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
-      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
-      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
-      { x: 0.00, y: 0.00, dx: 0.00, dy: 0.00 },
-    ];
+    function renderRuntimeMacros() {
+      runtimeMacrosEl.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const wrap = document.createElement('div');
+        wrap.className = 'control';
+        wrap.innerHTML = `
+          <div class="row">
+            <div class="label"><span>${state.macros[i].name}</span><span class="info" data-tip="Diese 0–100-Werte sind genau die Runtime-Makros, wie sie auch in Flutter host-seitig gemappt werden.">i</span></div>
+            <span class="value">${runtime.macroPending[i].toFixed(0)}</span>
+          </div>
+          <input type="range" min="0" max="100" step="1" value="${runtime.macroPending[i]}">
+        `;
+        const slider = wrap.querySelector('input');
+        const valEl = wrap.querySelector('.value');
+        slider.addEventListener('input', () => {
+          runtime.macroPending[i] = parseFloat(slider.value);
+          runtime.macroTarget[i] = runtime.macroPending[i];
+          valEl.textContent = runtime.macroPending[i].toFixed(0);
+        });
+        runtimeMacrosEl.appendChild(wrap);
+      }
+      updateSpeedHint();
+    }
+
+    const chipList = document.getElementById('chipList');
+    const macroZone = document.getElementById('macroZone');
+
+    function renderChips() {
+      chipList.innerHTML = '';
+      Object.keys(PARAM_SPECS).filter(n => n !== 'speed').forEach((name) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.draggable = true;
+        chip.textContent = name;
+        chip.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', name));
+        chipList.appendChild(chip);
+      });
+    }
+
+    function renderMacroZone() {
+      macroZone.innerHTML = '';
+      let bindingCount = 0;
+      state.macros.forEach((macro, index) => {
+        bindingCount += Object.keys(macro.bindings || {}).length;
+        const card = document.createElement('div');
+        card.className = 'macro';
+        card.innerHTML = `
+          <div class="macro-header">
+            <strong>${macro.name}</strong>
+            <span class="tiny">${Object.keys(macro.bindings || {}).length} bindings</span>
+          </div>
+          <div class="macro-drop"></div>
+        `;
+        const drop = card.querySelector('.macro-drop');
+        drop.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          drop.classList.add('dragover');
+        });
+        drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+        drop.addEventListener('drop', (e) => {
+          e.preventDefault();
+          drop.classList.remove('dragover');
+          const name = e.dataTransfer.getData('text/plain');
+          if (!name) return;
+          macro.bindings[name] ??= 0.35;
+          renderMacroZone();
+        });
+
+        const keys = Object.keys(macro.bindings || {});
+        if (!keys.length) {
+          drop.innerHTML = '<span class="tiny">Drop parameter chips here</span>';
+        } else {
+          keys.forEach((name) => {
+            const binding = document.createElement('div');
+            binding.className = 'binding';
+            binding.innerHTML = `
+              <span>${name}</span>
+              <input type="range" min="-1" max="1" step="0.01" value="${macro.bindings[name]}">
+              <span class="mini">${Number(macro.bindings[name]).toFixed(2)}</span>
+              <button title="remove">×</button>
+            `;
+            const slider = binding.querySelector('input');
+            const mini = binding.querySelector('.mini');
+            slider.addEventListener('input', () => {
+              macro.bindings[name] = parseFloat(slider.value);
+              mini.textContent = Number(macro.bindings[name]).toFixed(2);
+            });
+            binding.querySelector('button').addEventListener('click', () => {
+              delete macro.bindings[name];
+              renderMacroZone();
+            });
+            drop.appendChild(binding);
+          });
+        }
+        macroZone.appendChild(card);
+      });
+      fpsEls.bindings.textContent = String(bindingCount);
+    }
 
     const crossBase = [
-      { x: 0.17, y: 0.56, label: "D1" },
-      { x: 0.28, y: 0.48, label: "D2" },
-      { x: 0.38, y: 0.42, label: "D3" },
-      { x: 0.48, y: 0.36, label: "D4" },
+      {x:0.17,y:0.56,label:'D1'},
+      {x:0.28,y:0.48,label:'D2'},
+      {x:0.38,y:0.42,label:'D3'},
+      {x:0.48,y:0.36,label:'D4'},
     ];
-
     const crosses = [];
-
-    function updateLabels() {
-      Object.keys(PARAMS).forEach(name => {
-        const v = smoothedOnCommit.has(name) ? state[name].pending : state[name].target;
-        values[name].textContent = name === "curlCount" || name === "edgeBreakCount"
-          ? v.toFixed(0)
-          : v.toFixed(2);
-      });
-      speedHint.textContent = `pending ${state.speed.pending.toFixed(2)} · applied ${state.speed.applied.toFixed(2)}`;
-      curlCountHint.textContent = `pending ${state.curlCount.pending.toFixed(0)} · applied ${state.curlCount.applied.toFixed(2)}`;
-      curlDynamicsHint.textContent = `pending ${state.curlDynamics.pending.toFixed(2)} · applied ${state.curlDynamics.applied.toFixed(2)}`;
-    }
-
-    function setControlTarget(name, value, commit = false) {
-      const p = PARAMS[name];
-      const clamped = Math.min(p.max, Math.max(p.min, value));
-      const slider = controls[name];
-      slider.value = clamped;
-      if (smoothedOnCommit.has(name)) {
-        state[name].pending = clamped;
-        if (commit) state[name].target = clamped;
-      } else {
-        state[name].target = clamped;
-      }
-      if (name === "renderScale") resize();
-      updateLabels();
-    }
-
-    Object.keys(PARAMS).forEach(name => {
-      if (name === "renderScale") {
-        controls[name].addEventListener("input", () => {
-          state[name].target = parseFloat(controls[name].value);
-          resize();
-          updateLabels();
-        });
-        return;
-      }
-
-      if (smoothedOnCommit.has(name)) {
-        controls[name].addEventListener("input", () => {
-          state[name].pending = parseFloat(controls[name].value);
-          updateLabels();
-        });
-        const commit = () => { state[name].target = state[name].pending; updateLabels(); };
-        controls[name].addEventListener("change", commit);
-        controls[name].addEventListener("pointerup", commit);
-        controls[name].addEventListener("touchend", commit);
-      } else {
-        controls[name].addEventListener("input", () => {
-          state[name].target = parseFloat(controls[name].value);
-          updateLabels();
-        });
-      }
-    });
-
-    // overlay crosses
     function createCrosses() {
-      overlay.innerHTML = "";
+      overlay.innerHTML = '';
       crosses.length = 0;
-      strandOffsets.forEach((off, i) => {
-        const el = document.createElement("div");
-        el.className = "cross";
-        el.dataset.index = i;
-        const label = document.createElement("div");
-        label.className = "cross-label";
+      state.offsets.forEach((pair, i) => {
+        const el = document.createElement('div');
+        el.className = 'cross';
+        const label = document.createElement('div');
+        label.className = 'cross-label';
         label.textContent = crossBase[i].label;
         el.appendChild(label);
         overlay.appendChild(el);
         crosses.push(el);
 
         let dragging = false;
-        let moved = false;
-
-        const onMove = (clientX, clientY) => {
+        function move(clientX, clientY) {
           const rect = overlay.getBoundingClientRect();
           const nx = (clientX - rect.left) / rect.width;
           const ny = (clientY - rect.top) / rect.height;
-          const dx = (nx - crossBase[i].x) * 1.6;
-          const dy = (ny - crossBase[i].y) * 0.95;
-          off.x = Math.max(-0.8, Math.min(0.8, dx));
-          off.y = Math.max(-0.8, Math.min(0.8, dy));
+          pair[0] = Math.max(-0.8, Math.min(0.8, (nx - crossBase[i].x) * 1.6));
+          pair[1] = Math.max(-0.8, Math.min(0.8, (ny - crossBase[i].y) * 0.95));
           layoutCrosses();
-        };
-
-        el.addEventListener("pointerdown", (e) => {
-          dragging = true;
-          moved = false;
-          el.setPointerCapture(e.pointerId);
-          e.preventDefault();
+        }
+        el.addEventListener('pointerdown', (e) => {
+          dragging = true; el.setPointerCapture(e.pointerId); e.preventDefault();
         });
-        el.addEventListener("pointermove", (e) => {
-          if (!dragging) return;
-          moved = true;
-          onMove(e.clientX, e.clientY);
-        });
-        el.addEventListener("pointerup", () => {
-          dragging = false;
-        });
-        el.addEventListener("dblclick", () => {
-          off.x = 0.0; off.y = 0.0;
+        el.addEventListener('pointermove', (e) => { if (dragging) move(e.clientX, e.clientY); });
+        el.addEventListener('pointerup', () => dragging = false);
+        el.addEventListener('dblclick', () => {
+          pair[0] = 0; pair[1] = 0;
           layoutCrosses();
         });
       });
@@ -925,240 +851,146 @@ void main() {
     function layoutCrosses() {
       const rect = overlay.getBoundingClientRect();
       crosses.forEach((el, i) => {
-        const px = (crossBase[i].x + strandOffsets[i].x / 1.6) * rect.width;
-        const py = (crossBase[i].y + strandOffsets[i].y / 0.95) * rect.height;
-        el.style.left = px + "px";
-        el.style.top = py + "px";
+        const px = (crossBase[i].x + state.offsets[i][0] / 1.6) * rect.width;
+        const py = (crossBase[i].y + state.offsets[i][1] / 0.95) * rect.height;
+        el.style.left = px + 'px';
+        el.style.top = py + 'px';
       });
     }
 
-    document.getElementById("resetOffsets").addEventListener("click", () => {
-      strandOffsets.forEach(o => { o.x = 0; o.y = 0; });
-      layoutCrosses();
-    });
-
-    // Macro system
-    const chipList = document.getElementById("chipList");
-    const macroZone = document.getElementById("macroZone");
-    const addMacroBtn = document.getElementById("addMacro");
-    let macroId = 0;
-    const macros = [];
-
-    function createChip(name) {
-      const chip = document.createElement("div");
-      chip.className = "chip";
-      chip.draggable = true;
-      chip.dataset.param = name;
-      chip.textContent = name;
-      chip.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", name);
-      });
-      return chip;
-    }
-
-    Object.keys(PARAMS).forEach(name => {
-      if (name === "speed" || name === "renderScale" || name === "curlCount" || name === "curlDynamics" || PARAMS[name].shader) {
-        chipList.appendChild(createChip(name));
-      }
-    });
-
-    function updateBindingCount() {
-      const count = macros.reduce((acc, m) => acc + m.bindings.length, 0);
-      bindingCountEl.textContent = String(count);
-    }
-
-    function applyMacro(macro, value) {
-      macro.bindings.forEach(name => {
-        const p = PARAMS[name];
-        const mapped = p.min + value * (p.max - p.min);
-        setControlTarget(name, mapped, true);
-      });
-    }
-
-    function renderMacroBindings(macro) {
-      macro.drop.innerHTML = "";
-      if (!macro.bindings.length) {
-        macro.drop.innerHTML = '<span class="tiny">Drop controls here</span>';
-      } else {
-        macro.bindings.forEach(name => {
-          const chip = document.createElement("div");
-          chip.className = "bound-chip";
-          chip.innerHTML = `<span>${name}</span>`;
-          const btn = document.createElement("button");
-          btn.textContent = "×";
-          btn.addEventListener("click", () => {
-            macro.bindings = macro.bindings.filter(n => n !== name);
-            renderMacroBindings(macro);
-            updateBindingCount();
-          });
-          chip.appendChild(btn);
-          macro.drop.appendChild(chip);
-        });
-      }
-    }
-
-    function addMacro() {
-      const id = ++macroId;
-      const card = document.createElement("div");
-      card.className = "macro";
-
-      const header = document.createElement("div");
-      header.className = "macro-header";
-      header.innerHTML = `<strong>Macro ${id}</strong><span class="tiny">normalized 0–1</span>`;
-
-      const slider = document.createElement("input");
-      slider.type = "range";
-      slider.min = "0";
-      slider.max = "1";
-      slider.step = "0.01";
-      slider.value = "0.50";
-
-      const drop = document.createElement("div");
-      drop.className = "macro-drop";
-
-      card.appendChild(header);
-      card.appendChild(slider);
-      card.appendChild(drop);
-      macroZone.appendChild(card);
-
-      const macro = { id, card, slider, drop, bindings: [] };
-      macros.push(macro);
-
-      renderMacroBindings(macro);
-      updateBindingCount();
-
-      slider.addEventListener("input", () => {
-        applyMacro(macro, parseFloat(slider.value));
-      });
-
-      drop.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        drop.classList.add("dragover");
-      });
-      drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
-      drop.addEventListener("drop", (e) => {
-        e.preventDefault();
-        drop.classList.remove("dragover");
-        const name = e.dataTransfer.getData("text/plain");
-        if (!name) return;
-        if (!macro.bindings.includes(name)) macro.bindings.push(name);
-        renderMacroBindings(macro);
-        updateBindingCount();
-      });
-    }
-
-    addMacroBtn.addEventListener("click", addMacro);
-    addMacro();
-
-    document.getElementById("copyFrag").addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(buildFrag(true));
-      } catch (err) {
-        console.error(err);
-      }
-    });
-
-    document.getElementById("downloadFrag").addEventListener("click", () => {
-      const src = buildFrag(true);
-      const blob = new Blob([src], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "natural_edge_smoke_lr_macro.frag";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+    document.getElementById('resetOffsets').addEventListener('click', () => {
+      state.offsets = [[0,0],[0,0],[0,0],[0,0]];
+      createCrosses();
     });
 
     let internalW = 512;
     let internalH = 300;
     function resize() {
-      internalW = Math.max(1, Math.round(BASE_W * state.renderScale.target));
-      internalH = Math.max(1, Math.round(BASE_H * state.renderScale.target));
+      internalW = Math.max(1, Math.round(1024 * runtime.renderScale));
+      internalH = Math.max(1, Math.round(600 * runtime.renderScale));
       canvas.width = internalW;
       canvas.height = internalH;
       gl.viewport(0, 0, internalW, internalH);
-      fpsResEl.textContent = `${internalW}×${internalH}`;
+      fpsEls.res.textContent = `${internalW}×${internalH}`;
       requestAnimationFrame(layoutCrosses);
     }
 
+    function setStatusPill(el, kind, text) {
+      el.className = 'status-pill status-' + kind;
+      el.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
+    }
+
+    function estimateEmbeddedLoad(params) {
+      let load = 0;
+      load += runtime.renderScale * 34.0;
+      load += ((params.density - 0.30) / (1.80 - 0.30)) * 12.0;
+      load += ((params.curlCount - 0.0) / 6.0) * 12.0;
+      load += ((params.edgeBreakCount - 0.0) / 8.0) * 8.0;
+      load += ((params.turbulence - 0.0) / 2.20) * 8.0;
+      load += ((params.curlDynamics - 0.0) / 2.0) * 7.0;
+      load += ((params.edgeSharpness - 0.40) / (2.80 - 0.40)) * 6.0;
+      load += ((params.spread - 0.35) / (2.20 - 0.35)) * 5.0;
+      load += ((params.softness - 0.40) / (2.20 - 0.40)) * 4.0;
+      if (internalW * internalH > 512 * 300) load += 8.0;
+      return Math.max(0, Math.min(100, Math.round(load)));
+    }
+
+    function updatePerformanceAmpel(fpsAvg, dtMs, params) {
+      const load = estimateEmbeddedLoad(params);
+      embeddedLoadEl.textContent = String(load);
+
+      if (fpsAvg >= 55 && dtMs <= 18) {
+        setStatusPill(liveStatusEl, 'green', 'green');
+      } else if (fpsAvg >= 35 && dtMs <= 30) {
+        setStatusPill(liveStatusEl, 'yellow', 'yellow');
+      } else {
+        setStatusPill(liveStatusEl, 'red', 'red');
+      }
+
+      let embeddedKind = 'green';
+      let note = 'Grün: gutes Zeichen für dein Ziel. Niedrige bis moderate Shader-Komplexität bei embedded-freundlicher Auflösung.';
+      if (load <= 38 && internalW * internalH <= 512 * 300) {
+        embeddedKind = 'green';
+      } else if (load <= 62 && internalW * internalH <= 640 * 360) {
+        embeddedKind = 'yellow';
+        note = 'Gelb: wahrscheinlich noch okay, aber auf echter Hardware testen. Vor allem Curl Count, Edge Breaks und Turbulence treiben die Last.';
+      } else {
+        embeddedKind = 'red';
+        note = 'Rot: für Cortex + dedizierte OpenGL2-GPU in einem Backofen eher riskant. Erst Render Scale, dann Curl/Break/Turbulence reduzieren.';
+      }
+      setStatusPill(embeddedStatusEl, embeddedKind, embeddedKind);
+      perfNoteEl.textContent = note + ' Browser-FPS allein ist nicht der Maßstab; die Ampel gewichtet vor allem Shader-Komplexität und interne Auflösung.';
+    }
+
+    renderControls();
+    renderRuntimeMacros();
+    renderChips();
+    renderMacroZone();
     createCrosses();
-    updateLabels();
     resize();
-    window.addEventListener("resize", () => { resize(); layoutCrosses(); });
+
+    window.addEventListener('resize', () => {
+      resize();
+      layoutCrosses();
+    });
 
     let lastFrameTime = performance.now();
-    let fpsAvg = 0.0;
-    let shaderTime = 0.0;
-
-    function loadEstimate() {
-      let load = 0;
-      load += state.renderScale.target * 50.0;
-      load += (state.density.applied - 0.3) / 1.5 * 12.0;
-      load += state.curlCount.applied / 6.0 * 15.0;
-      load += state.turbulence.applied / 2.2 * 8.0;
-      load += state.edgeBreakCount.applied / 8.0 * 7.0;
-      load += state.curlDynamics.applied / 2.0 * 8.0;
-      return Math.round(Math.max(0, Math.min(100, load)));
-    }
+    let fpsAvg = 0;
+    let shaderTime = 0;
 
     function render(now) {
       const dtMs = Math.max(0.0001, now - lastFrameTime);
       lastFrameTime = now;
       const dt = dtMs * 0.001;
 
-      Object.keys(PARAMS).forEach(name => {
-        if (name === "renderScale") return;
-        const ease = smoothedOnCommit.has(name) ? Math.min(1.0, dt * 6.0) : Math.min(1.0, dt * 10.0);
-        state[name].applied += (state[name].target - state[name].applied) * ease;
-      });
+      runtime.speedApplied += (runtime.speedTarget - runtime.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i = 0; i < 3; i++) {
+        runtime.macroApplied[i] += (runtime.macroTarget[i] - runtime.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      }
+      shaderTime += dt * runtime.speedApplied;
 
-      shaderTime += dt * state.speed.applied;
-
-      const fpsInstant = 1000.0 / dtMs;
-      fpsAvg = fpsAvg === 0.0 ? fpsInstant : fpsAvg * 0.92 + fpsInstant * 0.08;
-
-      fpsInstantEl.textContent = fpsInstant.toFixed(1);
-      fpsAvgEl.textContent = fpsAvg.toFixed(1);
-      frameMsEl.textContent = dtMs.toFixed(2);
-      fpsSpeedEl.textContent = state.speed.applied.toFixed(2);
-      fpsCurlCountEl.textContent = state.curlCount.applied.toFixed(2);
-      loadEstimateEl.textContent = String(loadEstimate());
-
-      speedHint.textContent = `pending ${state.speed.pending.toFixed(2)} · applied ${state.speed.applied.toFixed(2)}`;
-      curlCountHint.textContent = `pending ${state.curlCount.pending.toFixed(0)} · applied ${state.curlCount.applied.toFixed(2)}`;
-      curlDynamicsHint.textContent = `pending ${state.curlDynamics.pending.toFixed(2)} · applied ${state.curlDynamics.applied.toFixed(2)}`;
+      const params = resolveRuntimeParams();
 
       gl.useProgram(program);
-      gl.uniform2f(uniforms.uResolution, internalW, internalH);
-      gl.uniform1f(uniforms.uTime, shaderTime);
-      gl.uniform1f(uniforms.uDensity, state.density.applied);
-      gl.uniform1f(uniforms.uCurl, state.curl.applied);
-      gl.uniform1f(uniforms.uTurbulence, state.turbulence.applied);
-      gl.uniform1f(uniforms.uEdge, state.edge.applied);
-      gl.uniform1f(uniforms.uSoftness, state.softness.applied);
-      gl.uniform1f(uniforms.uSpread, state.spread.applied);
-      gl.uniform1f(uniforms.uRedness, state.redness.applied);
-      gl.uniform1f(uniforms.uCurlSize, state.curlSize.applied);
-      gl.uniform1f(uniforms.uCurlCount, state.curlCount.applied);
-      gl.uniform1f(uniforms.uCurlDynamics, state.curlDynamics.applied);
-      gl.uniform1f(uniforms.uEdgeUpper, state.edgeUpper.applied);
-      gl.uniform1f(uniforms.uEdgeLower, state.edgeLower.applied);
-      gl.uniform1f(uniforms.uEdgeSharpness, state.edgeSharpness.applied);
-      gl.uniform1f(uniforms.uEdgeGradient, state.edgeGradient.applied);
-      gl.uniform1f(uniforms.uEdgeBreakCount, state.edgeBreakCount.applied);
-      gl.uniform1f(uniforms.uEdgeBreakStrength, state.edgeBreakStrength.applied);
-      gl.uniform1f(uniforms.uEdgeBreakSoftness, state.edgeBreakSoftness.applied);
-      gl.uniform2f(uniforms.uOff1, strandOffsets[0].x, strandOffsets[0].y);
-      gl.uniform2f(uniforms.uOff2, strandOffsets[1].x, strandOffsets[1].y);
-      gl.uniform2f(uniforms.uOff3, strandOffsets[2].x, strandOffsets[2].y);
-      gl.uniform2f(uniforms.uOff4, strandOffsets[3].x, strandOffsets[3].y);
-
+      gl.uniform2f(u.res, internalW, internalH);
+      gl.uniform1f(u.time, shaderTime);
+      gl.uniform1f(u.density, params.density);
+      gl.uniform1f(u.curl, params.curl);
+      gl.uniform1f(u.curlSize, params.curlSize);
+      gl.uniform1f(u.curlCount, params.curlCount);
+      gl.uniform1f(u.curlDynamics, params.curlDynamics);
+      gl.uniform1f(u.turbulence, params.turbulence);
+      gl.uniform1f(u.edge, params.edge);
+      gl.uniform1f(u.edgeUpper, params.edgeUpper);
+      gl.uniform1f(u.edgeLower, params.edgeLower);
+      gl.uniform1f(u.edgeUpperThin, params.edgeUpperThin);
+      gl.uniform1f(u.edgeLowerThin, params.edgeLowerThin);
+      gl.uniform1f(u.edgeSharpness, params.edgeSharpness);
+      gl.uniform1f(u.edgeGradient, params.edgeGradient);
+      gl.uniform1f(u.edgeBreakCount, params.edgeBreakCount);
+      gl.uniform1f(u.edgeBreakStrength, params.edgeBreakStrength);
+      gl.uniform1f(u.edgeBreakSoftness, params.edgeBreakSoftness);
+      gl.uniform1f(u.softness, params.softness);
+      gl.uniform1f(u.spread, params.spread);
+      gl.uniform1f(u.redness, params.redness);
+      gl.uniform2f(u.off1, state.offsets[0][0], state.offsets[0][1]);
+      gl.uniform2f(u.off2, state.offsets[1][0], state.offsets[1][1]);
+      gl.uniform2f(u.off3, state.offsets[2][0], state.offsets[2][1]);
+      gl.uniform2f(u.off4, state.offsets[3][0], state.offsets[3][1]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      const fpsInstant = 1000.0 / dtMs;
+      fpsAvg = fpsAvg === 0 ? fpsInstant : fpsAvg * 0.92 + fpsInstant * 0.08;
+      fpsEls.instant.textContent = fpsInstant.toFixed(1);
+      fpsEls.avg.textContent = fpsAvg.toFixed(1);
+      fpsEls.ms.textContent = dtMs.toFixed(2);
+      fpsEls.speed.textContent = runtime.speedApplied.toFixed(2);
+      fpsEls.macros.textContent = `${runtime.macroApplied[0].toFixed(0)} / ${runtime.macroApplied[1].toFixed(0)} / ${runtime.macroApplied[2].toFixed(0)}`;
+
+      document.getElementById('speedHint').textContent = `speed pending ${runtime.speedPending.toFixed(2)} · applied ${runtime.speedApplied.toFixed(2)}`;
+      updatePerformanceAmpel(fpsAvg, dtMs, params);
       requestAnimationFrame(render);
     }
-
     requestAnimationFrame(render);
   </script>
 </body>
