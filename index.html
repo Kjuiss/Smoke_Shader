@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smoke Shader Authoring + Runtime Preview</title>
+  <title>Smoke Shader Authoring + Runtime + Minimal Preview</title>
   <style>
     :root {
       --panel-bg: rgba(18,22,30,0.82);
@@ -14,16 +14,33 @@
       margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000000; color: #e9edf5;
       font-family: Inter, system-ui, Arial, sans-serif;
     }
-    .app {
-      position: fixed; inset: 0; display: grid; grid-template-columns: 450px minmax(0,1fr) 260px;
-    }
+    .app { position: fixed; inset: 0; display: grid; grid-template-columns: 450px 1fr; }
     .sidebar {
       overflow: auto; padding: 18px; background: rgba(10,13,18,0.92);
       border-right: 1px solid rgba(255,255,255,0.06);
     }
-    .stage-wrap { position: relative; padding: 24px; display: grid; place-items: center; background: #000000; }
-    .perfcol {
-      padding: 24px 18px 24px 0; overflow: auto; background: #000000;
+    .content {
+      display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; padding: 24px;
+      align-items: start;
+    }
+    .viewport-slot {
+      display: grid; place-items: center;
+    }
+    .stage { position: relative; width: min(1024px, calc(100vw - 790px)); aspect-ratio: 1024 / 600; }
+    canvas {
+      width: 100%; height: 100%; display: block; border-radius: 18px; background: #000000;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .overlay { position: absolute; inset: 0; pointer-events: none; }
+    .image-overlay {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: none;
+      object-fit: contain; pointer-events: none; border-radius: 18px;
+    }
+    .perf-col { display: grid; gap: 12px; align-content: start; }
+    .perf {
+      padding: 10px 12px; border-radius: 14px;
+      background: rgba(18,22,30,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 40px rgba(0,0,0,0.35); font-size: 12px; line-height: 1.5;
     }
     .tabbar { display: flex; gap: 8px; margin-bottom: 14px; }
     .tabbar button {
@@ -39,49 +56,6 @@
     h1 { font-size: 16px; margin: 0 0 8px; font-weight: 600; }
     h2 { font-size: 12px; margin: 14px 0 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(235,240,250,0.62); }
     .meta { font-size: 12px; line-height: 1.45; color: var(--text-dim); }
-    .stage {
-      position: relative; width: min(1024px, 100%); aspect-ratio: 1024 / 600; background: #000000;
-    }
-    canvas {
-      width: 100%; height: 100%; display: block; border-radius: 18px; background: #000000;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-    }
-    .overlay, .image-overlay { position: absolute; inset: 0; }
-    .overlay { pointer-events: none; }
-    .image-overlay {
-      width: 100%; height: 100%; object-fit: contain; border-radius: 18px; pointer-events: none; display: none;
-    }
-    .cross {
-      position: absolute; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%);
-      border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.06);
-      box-shadow: 0 3px 10px rgba(0,0,0,0.35); pointer-events: auto; cursor: grab; user-select: none;
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    }
-    .cross:before, .cross:after {
-      content: ""; position: absolute; background: rgba(255,255,255,0.95); left: 50%; top: 50%; transform: translate(-50%, -50%);
-    }
-    .cross:before { width: 12px; height: 1.6px; }
-    .cross:after { width: 1.6px; height: 12px; }
-    .cross-label {
-      position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
-      font-size: 10px; color: rgba(255,255,255,0.85); white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.55); pointer-events: none;
-    }
-    .perfpanel {
-      border-radius: 18px; background: rgba(18,22,30,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-      font-size: 12px; line-height: 1.5; padding: 12px 14px; margin-bottom: 14px;
-    }
-    .status-pill {
-      display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; font-weight: 600;
-      border: 1px solid rgba(255,255,255,0.10);
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-    .status-green { background: rgba(60,130,60,0.22); color: #bff0bf; }
-    .status-green .status-dot { background: #69d36f; }
-    .status-yellow { background: rgba(150,120,35,0.24); color: #ffe7a8; }
-    .status-yellow .status-dot { background: #f0c14a; }
-    .status-red { background: rgba(150,45,45,0.24); color: #ffb4b4; }
-    .status-red .status-dot { background: #f06a6a; }
     .control { margin-bottom: 14px; }
     .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; color: #cfd6e6; }
     .label { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -89,16 +63,6 @@
     input[type="range"] { width: 100%; appearance: none; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.14); outline: none; }
     input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer; border: none; }
     input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #ffffff; cursor: pointer; border: none; }
-    input[type="color"] {
-      width: 100%; height: 42px; padding: 0; border: none; border-radius: 12px; background: transparent; cursor: pointer;
-    }
-    .rgb-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px;
-    }
-    .rgb-grid input[type="number"] {
-      width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.06); color: white; padding: 8px 10px; font: inherit;
-    }
     .info {
       position: relative; width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center;
       font-size: 11px; font-weight: 700; color: white; background: rgba(255,255,255,0.12); cursor: help; flex: 0 0 16px;
@@ -139,6 +103,40 @@
       border: 1px solid rgba(255,255,255,0.06); font-size: 11px; line-height: 1.45; white-space: pre-wrap;
       color: rgba(255,255,255,0.80); max-height: 160px; overflow: auto;
     }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-green { background: rgba(60,130,60,0.22); color: #bff0bf; }
+    .status-green .status-dot { background: #69d36f; }
+    .status-yellow { background: rgba(150,120,35,0.24); color: #ffe7a8; }
+    .status-yellow .status-dot { background: #f0c14a; }
+    .status-red { background: rgba(150,45,45,0.24); color: #ffb4b4; }
+    .status-red .status-dot { background: #f06a6a; }
+    .cross {
+      position: absolute; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%);
+      border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.06);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35); pointer-events: auto; cursor: grab; user-select: none;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .cross:before, .cross:after {
+      content: ""; position: absolute; background: rgba(255,255,255,0.95); left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+    .cross:before { width: 12px; height: 1.6px; }
+    .cross:after { width: 1.6px; height: 12px; }
+    .cross-label {
+      position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%);
+      font-size: 10px; color: rgba(255,255,255,0.85); white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.55); pointer-events: none;
+    }
+    .color-grid { display: grid; grid-template-columns: 1fr 70px 70px 70px; gap: 8px; align-items: center; }
+    .color-grid input[type="number"] {
+      width: 100%; box-sizing: border-box; padding: 8px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.06); color: white;
+    }
+    .color-grid input[type="color"] {
+      width: 100%; height: 38px; border: none; background: transparent; padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -147,18 +145,18 @@
       <div class="tabbar">
         <button id="tabAuthoring" class="active">Authoring</button>
         <button id="tabRuntime">Flutter runtime preview</button>
+        <button id="tabMinimal">Minimal export preview</button>
       </div>
 
       <div id="authoringPanel">
         <div class="panel">
           <h1>Authoring</h1>
-          <div class="meta">Große Basis-Regler, Offset-Kreuze und Makro-Mapping. Die Preview verwendet denselben Zielshader wie Flutter, nur über einen WebGL-Adapter. <strong>Curl Count</strong> und <strong>Curl Dynamics</strong> werden weich angefahren, damit sie beim Verstellen weniger springen.</div>
+          <div class="meta">Große Basis-Regler, Offset-Kreuze und Makro-Mapping. Die Preview verwendet denselben Zielshader wie Flutter, nur über einen WebGL-Adapter. Curl Count und Curl Dynamics werden weich angefahren.</div>
           <h2>Runtime macros (wie im Flutter-Host)</h2>
           <div id="authoringMacroControls"></div>
           <div class="subhint" id="authoringMacroHint">speed pending 1.00 · applied 1.00 · target 1.00</div>
           <h2>Base parameter authoring</h2>
           <div id="authoringControls"></div>
-          <div id="colorControlBlock"></div>
           <h2>Offsets</h2>
           <div class="subhint">Ziehe D1–D4 im Viewport. Doppelklick setzt einzeln zurück.</div>
           <div class="actions"><button class="action" id="resetOffsets">Reset offsets</button></div>
@@ -166,7 +164,7 @@
 
         <div class="panel">
           <h2>Macro mapping editor</h2>
-          <div class="tiny">Ziehe Parameter-Chips auf Macro 1–3. Influence bestimmt, wie stark der Runtime-Makro-Wert 0–100 den Basiswert verschiebt. <strong>speed</strong> ist jetzt ebenfalls bindbar.</div>
+          <div class="tiny">Ziehe Parameter-Chips auf Macro 1–3. Influence bestimmt, wie stark der Runtime-Makro-Wert 0–100 den Basiswert verschiebt. <strong>speed</strong> ist bindbar.</div>
           <div class="chip-list" id="chipList"></div>
           <div id="macroZone" style="margin-top:12px;"></div>
         </div>
@@ -186,12 +184,22 @@
           <input id="importSavegameInput" type="file" accept="application/json,.json" style="display:none;">
           <div id="authoringLog" class="log">Compile log: waiting…</div>
         </div>
+
+        <div class="panel">
+          <h2>Target-safe minimal export</h2>
+          <div class="meta">Dieser Export nutzt die konservative, ABI-stabile Minimal-Shader-Struktur. Heikle Uniforms entfallen. Für Farbe werden nur konstante Werte in die .frag eingebacken; die Uniform-Struktur bleibt gleich.</div>
+          <div class="actions">
+            <button class="action" id="downloadMinimalConfig">Download smoke_config_minimal.json</button>
+            <button class="action" id="downloadMinimalFrag">Download steam_target_safe.frag</button>
+            <button class="action" id="downloadMinimalMain">Download main_minimal.dart</button>
+          </div>
+        </div>
       </div>
 
       <div id="runtimePanel" class="hidden">
         <div class="panel">
           <h1>Flutter runtime preview</h1>
-          <div class="meta">Diese Vorschau benutzt dieselbe Host-Mapping-Logik wie die mitgelieferte <code>main.dart</code>. Das ist kein echter Etnaviv-Emulator, aber der Flutter-Hostpfad wird hier realistisch nachgebildet. Makros, Geschwindigkeit, Curl Count und Curl Dynamics werden weich geglättet. Das PNG-Overlay liegt exakt über dem Shader-Viewport.</div>
+          <div class="meta">Diese Vorschau benutzt dieselbe Host-Mapping-Logik wie die mitgelieferte <code>main.dart</code>. Makros, Geschwindigkeit, Curl Count und Curl Dynamics werden weich geglättet. Das PNG-Overlay liegt pixelgenau über dem Shader-Viewport.</div>
           <h2>Runtime macros</h2>
           <div id="runtimeMacroControls"></div>
           <div class="subhint" id="runtimeHint">speed pending 1.00 · applied 1.00 · target 1.00</div>
@@ -202,57 +210,97 @@
             <button class="action" id="clearOverlayBtn">Overlay entfernen</button>
           </div>
           <input id="overlayInput" type="file" accept="image/png" style="display:none;">
-          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz. Die HTML-Simulation legt das Bild pixelgenau über den Shader-Viewport.</div>
+          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz.</div>
           <div class="tiny" id="resolvedText" style="margin-top:8px;">Resolved: waiting…</div>
           <div id="runtimeLog" class="log">Compile log: waiting…</div>
         </div>
       </div>
+
+      <div id="minimalPanel" class="hidden">
+        <div class="panel">
+          <h1>Minimal export preview</h1>
+          <div class="meta">Diese Vorschau verwendet den konservativen Minimal-Shaderpfad. Sie hat dieselben Makro-Regler, dieselbe Host-Speed-Logik und dasselbe PNG-Overlay-Prinzip wie die Flutter runtime preview. Der Hintergrund ist hier standardmäßig komplett schwarz.</div>
+          <h2>Runtime macros</h2>
+          <div id="minimalMacroControls"></div>
+          <div class="subhint" id="minimalHint">speed pending 1.00 · applied 1.00 · target 1.00</div>
+          <h2>Base speed (host)</h2>
+          <div id="minimalSpeedControl"></div>
+          <div class="actions">
+            <button class="action" id="uploadMinimalOverlayBtn">PNG Overlay laden</button>
+            <button class="action" id="clearMinimalOverlayBtn">Overlay entfernen</button>
+          </div>
+          <input id="minimalOverlayInput" type="file" accept="image/png" style="display:none;">
+          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz.</div>
+          <h2>Minimale Farbbasis (baked, ABI-safe)</h2>
+          <div class="meta">Die RGB-Farbe wird nur in die festen Rot-Konstanten der Minimal-<code>.frag</code> eingebacken. Es kommen keine neuen Uniforms dazu. <strong>redness</strong> bleibt nur der Intensitätsregler.</div>
+          <div id="minimalColorControls"></div>
+          <div class="tiny" id="minimalResolvedText" style="margin-top:8px;">Resolved: waiting…</div>
+          <div id="minimalLog" class="log">Compile log: waiting…</div>
+        </div>
+      </div>
     </div>
 
-    <div class="stage-wrap">
-      <div class="stage" id="authoringStage">
-        <canvas id="authoringCanvas"></canvas>
-        <div class="overlay" id="authoringOverlay"></div>
+    <div class="content">
+      <div class="viewport-slot">
+        <div class="stage" id="authoringStage">
+          <canvas id="authoringCanvas"></canvas>
+          <div class="overlay" id="authoringOverlay"></div>
+        </div>
+        <div class="stage hidden" id="runtimeStage">
+          <canvas id="runtimeCanvas"></canvas>
+          <img id="runtimeOverlayImage" class="image-overlay" alt="">
+        </div>
+        <div class="stage hidden" id="minimalStage">
+          <canvas id="minimalCanvas"></canvas>
+          <img id="minimalOverlayImage" class="image-overlay" alt="">
+        </div>
       </div>
 
-      <div class="stage hidden" id="runtimeStage">
-        <canvas id="runtimeCanvas"></canvas>
-        <img id="runtimeOverlayImage" class="image-overlay" alt="">
-      </div>
-    </div>
+      <div class="perf-col">
+        <div class="perf" id="authoringPerf">
+          <div><strong>Authoring Performance</strong></div>
+          <div>Instant FPS: <span id="aFpsInstant">0.0</span></div>
+          <div>Avg FPS: <span id="aFpsAvg">0.0</span></div>
+          <div>Frame ms: <span id="aFrameMs">0.0</span></div>
+          <div>Internal: <span id="aRes">512×300</span></div>
+          <div>Applied speed: <span id="aSpeed">1.00</span></div>
+          <div style="margin-top:8px;">Preview on this machine:</div>
+          <div><span id="aLiveStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+          <div style="margin-top:8px;">Embedded estimate:</div>
+          <div><span id="aEmbeddedStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
+          <div>Estimated load: <span id="aEmbeddedLoad">0</span>/100</div>
+        </div>
 
-    <div class="perfcol">
-      <div id="authoringPerfPanel" class="perfpanel">
-        <div><strong>Authoring Performance</strong></div>
-        <div>Instant FPS: <span id="aFpsInstant">0.0</span></div>
-        <div>Avg FPS: <span id="aFpsAvg">0.0</span></div>
-        <div>Frame ms: <span id="aFrameMs">0.0</span></div>
-        <div>Internal: <span id="aRes">512×300</span></div>
-        <div>Applied speed: <span id="aSpeed">1.00</span></div>
-        <div style="margin-top:8px;">Preview on this machine:</div>
-        <div><span id="aLiveStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
-        <div style="margin-top:8px;">Embedded estimate:</div>
-        <div><span id="aEmbeddedStatus" class="status-pill status-green"><span class="status-dot"></span><span>green</span></span></div>
-        <div>Estimated load: <span id="aEmbeddedLoad">0</span>/100</div>
-      </div>
+        <div class="perf hidden" id="runtimePerf">
+          <div><strong>Flutter Runtime Performance</strong></div>
+          <div>Instant FPS: <span id="rFpsInstant">0.0</span></div>
+          <div>Avg FPS: <span id="rFpsAvg">0.0</span></div>
+          <div>Frame ms: <span id="rFrameMs">0.0</span></div>
+          <div>Internal: <span id="rRes">512×300</span></div>
+          <div>Applied speed: <span id="rSpeed">1.00</span></div>
+          <div>Applied macros: <span id="rMacros">0 / 0 / 0</span></div>
+        </div>
 
-      <div id="runtimePerfPanel" class="perfpanel hidden">
-        <div><strong>Runtime Preview Performance</strong></div>
-        <div>Instant FPS: <span id="rFpsInstant">0.0</span></div>
-        <div>Avg FPS: <span id="rFpsAvg">0.0</span></div>
-        <div>Frame ms: <span id="rFrameMs">0.0</span></div>
-        <div>Internal: <span id="rRes">512×300</span></div>
-        <div>Applied speed: <span id="rSpeed">1.00</span></div>
-        <div>Applied macros: <span id="rMacros">0 / 0 / 0</span></div>
+        <div class="perf hidden" id="minimalPerf">
+          <div><strong>Minimal Export Performance</strong></div>
+          <div>Instant FPS: <span id="mFpsInstant">0.0</span></div>
+          <div>Avg FPS: <span id="mFpsAvg">0.0</span></div>
+          <div>Frame ms: <span id="mFrameMs">0.0</span></div>
+          <div>Internal: <span id="mRes">512×300</span></div>
+          <div>Applied speed: <span id="mSpeed">1.00</span></div>
+          <div>Applied macros: <span id="mMacros">0 / 0 / 0</span></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    const PARAM_SPECS = {"density": {"min": 0.3, "max": 1.8, "step": 0.01, "tip": "Mehr Rauch schaltet zusätzliche Fahnen und mehr Volumen zu."}, "speed": {"min": 0.1, "max": 4.8, "step": 0.01, "tip": "Wird host-seitig geglättet. Der Shader bekommt nur integrierte Zeit."}, "curl": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Grundstärke der Wirbel."}, "curlSize": {"min": 0.5, "max": 1.8, "step": 0.01, "tip": "Größe der Wirbelradien."}, "curlCount": {"min": 0.0, "max": 6.0, "step": 1.0, "tip": "Zusätzliche feste Wirbelstationen. Höher = mehr Detail."}, "curlDynamics": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Zeitliche Lebendigkeit der Wirbelpositionen."}, "turbulence": {"min": 0.0, "max": 6.6, "step": 0.01, "tip": "Feinere Unruhe in Kontur und Körper. Range verdreifacht."}, "edge": {"min": 0.2, "max": 2.4, "step": 0.01, "tip": "Gesamte Kantenbetonung."}, "edgeUpper": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Obere Kante separat."}, "edgeLower": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Untere Kante separat."}, "edgeUpperThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die obere Kante dünner oder breiter."}, "edgeLowerThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die untere Kante dünner oder breiter."}, "edgeSharpness": {"min": 0.4, "max": 2.8, "step": 0.01, "tip": "Schärfe/Prägnanz der Edge-Bänder."}, "edgeGradient": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "Verlauf der Kantenbetonung entlang der Fahne."}, "edgeBreakCount": {"min": 0.0, "max": 8.0, "step": 1.0, "tip": "Anzahl der Edge-Unterbrechungen."}, "edgeBreakStrength": {"min": 0.0, "max": 1.4, "step": 0.01, "tip": "Wie tief Breaks in die Kante schneiden."}, "edgeBreakSoftness": {"min": 0.2, "max": 3.0, "step": 0.01, "tip": "Wie weich/lang Breaks auslaufen."}, "softness": {"min": 0.4, "max": 2.2, "step": 0.01, "tip": "Breiterer, milchigerer Körper."}, "spread": {"min": 0.35, "max": 2.2, "step": 0.01, "tip": "Öffnet die Fahnen im Raum."}, "color": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "Mischt von neutralem Rauch in die gewählte Zielfarbe."}, "renderScale": {"min": 0.3, "max": 1.0, "step": 0.01, "tip": "Interne Shader-Auflösung relativ zu 1024×600. 1.00 entspricht voller Zielauflösung 1024×600."}};
-    const DEFAULT_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "curlSize": 1.08, "curlCount": 2.0, "curlDynamics": 1.0, "turbulence": 1.0, "edge": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeUpperThin": 1.0, "edgeLowerThin": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0, "softness": 1.05, "spread": 1.06, "color": 0.0}, "tintColor": [250, 69, 46], "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "color": 0.75, "edgeUpperThin": 0.22, "edgeLowerThin": 0.22}}]};
-    const FLUTTER_FRAG = "#version 460 core\n#include <flutter/runtime_effect.glsl>\n\nprecision mediump float;\n\nout vec4 fragColor;\n\nuniform vec2 uResolution;          // 0,1\nuniform float uTime;               // 2\nuniform float uDensity;            // 3\nuniform float uCurl;               // 4\nuniform float uCurlSize;           // 5\nuniform float uCurlCount;          // 6\nuniform float uCurlDynamics;       // 7\nuniform float uTurbulence;         // 8\nuniform float uEdge;               // 9\nuniform float uEdgeUpper;          // 10\nuniform float uEdgeLower;          // 11\nuniform float uEdgeUpperThin;      // 12\nuniform float uEdgeLowerThin;      // 13\nuniform float uEdgeSharpness;      // 14\nuniform float uEdgeGradient;       // 15\nuniform float uEdgeBreakCount;     // 16\nuniform float uEdgeBreakStrength;  // 17\nuniform float uEdgeBreakSoftness;  // 18\nuniform float uSoftness;           // 19\nuniform float uSpread;             // 20\nuniform float uColor;             // 21\nuniform vec3 uTintColor;          // 22,23,24\nuniform vec2 uOff1;                // 25,26\nuniform vec2 uOff2;                // 27,28\nuniform vec2 uOff3;                // 29,30\nuniform vec2 uOff4;                // 31,32\n\nfloat hash21(vec2 p) {\n  p = fract(p * vec2(0.1031, 0.11369));\n  p += dot(p, p.yx + 19.19);\n  return fract((p.x + p.y) * p.x);\n}\n\nfloat noise2(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  f = f * f * (3.0 - 2.0 * f);\n  float a = hash21(i);\n  float b = hash21(i + vec2(1.0, 0.0));\n  float c = hash21(i + vec2(0.0, 1.0));\n  float d = hash21(i + vec2(1.0, 1.0));\n  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);\n}\n\nfloat n2(vec2 p) {\n  float a = noise2(p);\n  float b = noise2(p * 2.03 + vec2(7.1, 3.4));\n  return mix(a, b, 0.35);\n}\n\nmat2 rot(float a) {\n  float s = sin(a);\n  float c = cos(a);\n  return mat2(c, -s, s, c);\n}\n\nvec2 swirl(vec2 p, vec2 center, float radius, float strength) {\n  vec2 d = p - center;\n  float r = length(d);\n  float w = 1.0 - smoothstep(radius * 0.28, radius, r);\n  float a = strength * w * (0.40 + 0.60 * (1.0 - clamp(r / radius, 0.0, 1.0)));\n  return center + rot(a) * d;\n}\n\nfloat edgeBreakMask(float x, float seed, float count, float strength, float softness) {\n  if (strength <= 0.0001 || count <= 0.0) return 0.0;\n\n  float m = 0.0;\n  float width = mix(0.012, 0.055, clamp(strength / 1.4, 0.0, 1.0));\n  float feather = mix(0.025, 0.30, clamp((softness - 0.2) / 2.8, 0.0, 1.0));\n\n  for (int i = 0; i < 8; i++) {\n    float fi = float(i);\n    float active = step(fi + 0.5, count);\n    float center = 0.16 + (fi + 0.55) / 8.0 * 1.90;\n    center += sin(seed * 17.0 + fi * 7.1) * 0.055;\n    float notch = 1.0 - smoothstep(width, width + feather, abs(x - center));\n    m = max(m, notch * active);\n  }\n  return clamp(m, 0.0, 1.0);\n}\n\nvec3 strandEval(\n  vec2 p,\n  vec2 src,\n  vec2 off,\n  float t,\n  float seed\n) {\n  vec2 q = p - src - off;\n  float x = q.x;\n  if (x <= 0.0) return vec3(0.0);\n\n  q.y *= 1.0 / mix(1.0, 1.32, clamp(uSpread - 1.0, -0.5, 1.2));\n\n  float dyn = max(0.001, uCurlDynamics);\n  float size = uCurlSize;\n  float seedA = fract(seed * 3.71);\n  float seedB = fract(seed * 5.13 + 0.17);\n  float posVar = clamp(length(off) * 1.35, 0.0, 1.0);\n  float sizeVarA = mix(0.84, 1.28, seedA);\n  float sizeVarB = mix(0.82, 1.24, seedB);\n  float curlVarA = mix(0.82, 1.18, seedA);\n  float curlVarB = mix(0.78, 1.22, seedB);\n\n  q = swirl(\n    q,\n    vec2(\n      0.50 + 0.08 * sin(t * 0.21 * dyn + seed * 3.1) + (seedA - 0.5) * 0.10,\n      -0.04 + 0.05 * sin(t * 0.17 * dyn + seed * 1.4) + (seedB - 0.5) * 0.08\n    ),\n    0.18 * size * sizeVarA * mix(0.95, 1.28, uSpread) * mix(1.0, 1.12, posVar),\n    0.98 * uCurl * curlVarA\n  );\n  q = swirl(\n    q,\n    vec2(\n      0.96 + 0.06 * sin(t * 0.15 * dyn + seed * 4.2) + (seedB - 0.5) * 0.12,\n      0.05 + 0.04 * sin(t * 0.13 * dyn + seed * 2.4) - (seedA - 0.5) * 0.08\n    ),\n    0.16 * size * sizeVarB * mix(0.95, 1.28, uSpread),\n    -1.10 * uCurl * curlVarB\n  );\n\n  q.y += (n2(vec2(x * 0.58 + seed * 4.1, t * 0.09 + seed * 2.3)) - 0.5) * 0.055 * uTurbulence;\n\n  float c1 = step(0.5, uCurlCount);\n  float c2 = step(1.5, uCurlCount);\n  float c3 = step(2.5, uCurlCount);\n  float c4 = step(3.5, uCurlCount);\n  float c5 = step(4.5, uCurlCount);\n  float c6 = step(5.5, uCurlCount);\n\n  q = mix(q, swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, uSpread), 0.78 * uCurl), c1);\n  q = mix(q, swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, uSpread), -0.72 * uCurl), c2);\n  q = mix(q, swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, uSpread), 0.58 * uCurl), c3);\n  q = mix(q, swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, uSpread), -0.46 * uCurl), c4);\n  q = mix(q, swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, uSpread), 0.52 * uCurl), c5);\n  q = mix(q, swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, uSpread), -0.38 * uCurl), c6);\n\n  float centerLine =\n      -0.14 * x\n    + 0.060 * sin(x * (1.30 + seedA * 0.40) + t * 0.29 + seed * 10.0)\n    + 0.024 * sin(x * (4.0 + seedB * 1.1) - t * 0.37 + seed * 16.0)\n    + 0.010 * sin(x * 7.5 + seed * 21.0 + t * 0.11)\n    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.048 * uTurbulence;\n\n  float y = q.y - centerLine;\n  float ad = abs(y);\n\n  float w = mix(0.024, 0.096, smoothstep(0.0, 1.52, x));\n  w *= mix(0.86, 1.52, clamp((uSoftness - 0.4) / 1.8, 0.0, 1.0));\n  w *= mix(0.88, 1.46, clamp((uSpread - 0.35) / 1.85, 0.0, 1.0));\n  w *= mix(0.92, 1.18, sizeVarA) * mix(1.0, 1.08, posVar);\n\n  float body = 1.0 - smoothstep(w * 0.08, w * 1.02, ad);\n  float veil = 1.0 - smoothstep(w * 1.02, w * 2.95, ad);\n\n  float sharp = mix(0.40, 2.10, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));\n  float upperThin = mix(1.55, 0.55, clamp((uEdgeUpperThin - 0.3) / 1.9, 0.0, 1.0));\n  float lowerThin = mix(1.55, 0.55, clamp((uEdgeLowerThin - 0.3) / 1.9, 0.0, 1.0));\n\n  float upperInner = mix(0.10, 0.32, sharp) * upperThin;\n  float upperOuter = mix(0.48, 0.90, sharp) * upperThin;\n  float lowerInner = mix(0.10, 0.32, sharp) * lowerThin;\n  float lowerOuter = mix(0.48, 0.90, sharp) * lowerThin;\n\n  float upperBand =\n      smoothstep(w * upperInner, w * (upperInner + 0.20), y) *\n      (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));\n\n  float lowerBand =\n      smoothstep(w * lowerInner, w * (lowerInner + 0.20), -y) *\n      (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));\n\n  float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));\n  edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);\n  float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));\n  edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);\n\n  float grad = clamp((x / 2.10) + (uEdgeGradient - 0.5), 0.0, 1.0);\n  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);\n  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);\n\n  float breakU = edgeBreakMask(x, seed + 0.31, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);\n  float breakL = edgeBreakMask(x, seed + 1.73, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);\n\n  float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));\n  bodyNoise = smoothstep(0.20, 0.88, bodyNoise);\n\n  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breakU * uEdgeBreakStrength);\n  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breakL * uEdgeBreakStrength);\n  float edgeMix = upperEdge + lowerEdge;\n\n  float fade = smoothstep(0.0, 0.08, x);\n  fade *= 1.0 - smoothstep(1.42, 2.30, x);\n  fade *= 1.0 - smoothstep(0.80, 1.34, p.y);\n\n  float density = (body * 0.25 + veil * 0.11 + edgeMix * 0.45) * bodyNoise * fade;\n  float edgeWeight = edgeMix * fade;\n  float mist = veil * 0.08 * fade;\n  return vec3(density, edgeWeight, mist);\n}\n\nvec3 smokeSide(vec2 p, float side, float t) {\n  vec2 pp = p;\n  pp.x *= -side;\n\n  float s2 = smoothstep(0.45, 0.82, uDensity);\n  float s3 = smoothstep(0.82, 1.18, uDensity);\n  float s4 = smoothstep(1.18, 1.55, uDensity);\n\n  vec3 a = strandEval(pp,                     vec2(-1.04, -0.10), uOff1 * vec2(-side, 1.0), t,            0.19 + side * 0.11);\n  vec3 b = strandEval(pp + vec2(0.0, 0.03),  vec2(-1.08,  0.00), uOff2 * vec2(-side, 1.0), t * 0.96 + 2.6, 0.57 + side * 0.07);\n  vec3 c = strandEval(pp + vec2(0.0, -0.04), vec2(-1.11,  0.09), uOff3 * vec2(-side, 1.0), t * 1.03 + 4.1, 0.91 + side * 0.05);\n  vec3 d = strandEval(pp + vec2(0.0, 0.06),  vec2(-1.14, -0.18), uOff4 * vec2(-side, 1.0), t * 0.90 + 6.7, 1.29 + side * 0.09);\n\n  float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;\n  float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;\n  float mist = a.z + b.z * s2 + c.z * s3 + d.z * s4;\n  return vec3(density, edge, mist);\n}\n\nvoid main() {\n  vec2 fragCoord = FlutterFragCoord().xy;\n  vec2 uv = fragCoord / uResolution;\n  vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;\n  float t = uTime;\n\n  vec3 bg = vec3(0.0, 0.0, 0.0);\n\n  vec3 left  = smokeSide(p, -1.0, t);\n  vec3 right = smokeSide(p,  1.0, t + 1.1);\n\n  float density = left.x + right.x;\n  float edge = left.y + right.y;\n  float mist = left.z + right.z;\n\n  float alpha = 1.0 - exp(-(density + mist * 0.55) * 1.12);\n  alpha = clamp(alpha, 0.0, 0.82);\n\n  float edgeRatio = clamp(edge / max(density + mist * 0.4, 0.0001), 0.0, 1.0);\n  edgeRatio *= mix(0.45, 1.80, clamp((uEdge - 0.2) / 2.2, 0.0, 1.0));\n  edgeRatio = clamp(edgeRatio, 0.0, 1.0);\n\n  float toneNoise = n2(vec2(p.x * 1.9 + 1.1, p.y * 2.6 - t * 0.02));\n  float tone = mix(0.78, 0.92, toneNoise);\n\n  vec3 neutralBodyA = vec3(0.50, 0.52, 0.56);\n  vec3 neutralBodyB = vec3(0.74, 0.76, 0.79);\n  vec3 neutralEdge  = vec3(0.94, 0.95, 0.96);\n\n  vec3 tint = clamp(uTintColor, 0.0, 1.0);\n  vec3 tintBodyA = tint * 0.28;\n  vec3 tintBodyB = mix(tint * 0.68, tint, 0.55);\n  vec3 tintEdge  = mix(vec3(0.98), tint, 0.72);\n\n  vec3 bodyColor = mix(neutralBodyA, neutralBodyB, tone);\n  vec3 edgeColor = neutralEdge;\n  vec3 targetBody = mix(tintBodyA, tintBodyB, tone);\n\n  bodyColor = mix(bodyColor, targetBody, uColor);\n  edgeColor = mix(edgeColor, tintEdge, uColor);\n\n  vec3 smokeColor = mix(bodyColor, edgeColor, edgeRatio);\n\n  vec3 col = mix(bg, smokeColor, alpha);\n  float vignette = smoothstep(1.24, 0.28, length(uv - 0.5));\n  col *= vignette;\n\n  fragColor = vec4(col, 1.0);\n}";
-    const SAVE_KEY = 'smoke_shader_restored_orderly_v1';
+    const PARAM_SPECS = {"density": {"min": 0.3, "max": 1.8, "step": 0.01, "tip": "Mehr Rauch schaltet zus\u00e4tzliche Fahnen und mehr Volumen zu."}, "speed": {"min": 0.1, "max": 4.8, "step": 0.01, "tip": "Wird host-seitig gegl\u00e4ttet. Der Shader bekommt nur integrierte Zeit. Dieser normale Speed-Slider ist zus\u00e4tzlich makro-bindbar."}, "curl": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Grundst\u00e4rke der Wirbel."}, "curlSize": {"min": 0.5, "max": 1.8, "step": 0.01, "tip": "Gr\u00f6\u00dfe der Wirbelradien."}, "curlCount": {"min": 0.0, "max": 6.0, "step": 1.0, "tip": "Zus\u00e4tzliche feste Wirbelstationen. H\u00f6her = mehr Detail."}, "curlDynamics": {"min": 0.0, "max": 2.0, "step": 0.01, "tip": "Zeitliche Lebendigkeit der Wirbelpositionen."}, "turbulence": {"min": 0.0, "max": 6.6, "step": 0.01, "tip": "Feinere Unruhe in Kontur und K\u00f6rper. Range verdreifacht."}, "edge": {"min": 0.2, "max": 2.4, "step": 0.01, "tip": "Gesamte Kantenbetonung."}, "edgeUpper": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Obere Kante separat."}, "edgeLower": {"min": 0.0, "max": 2.4, "step": 0.01, "tip": "Untere Kante separat."}, "edgeUpperThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die obere Kante d\u00fcnner oder breiter."}, "edgeLowerThin": {"min": 0.3, "max": 2.2, "step": 0.01, "tip": "Macht die untere Kante d\u00fcnner oder breiter."}, "edgeSharpness": {"min": 0.4, "max": 2.8, "step": 0.01, "tip": "Sch\u00e4rfe/Pr\u00e4gnanz der Edge-B\u00e4nder."}, "edgeGradient": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "Verlauf der Kantenbetonung entlang der Fahne."}, "edgeBreakCount": {"min": 0.0, "max": 8.0, "step": 1.0, "tip": "Anzahl der Edge-Unterbrechungen."}, "edgeBreakStrength": {"min": 0.0, "max": 1.4, "step": 0.01, "tip": "Wie tief Breaks in die Kante schneiden."}, "edgeBreakSoftness": {"min": 0.2, "max": 3.0, "step": 0.01, "tip": "Wie weich/lang Breaks auslaufen."}, "softness": {"min": 0.4, "max": 2.2, "step": 0.01, "tip": "Breiterer, milchigerer K\u00f6rper."}, "spread": {"min": 0.35, "max": 2.2, "step": 0.01, "tip": "\u00d6ffnet die Fahnen im Raum."}, "redness": {"min": 0.0, "max": 1.0, "step": 0.01, "tip": "St\u00e4rke der Farbmischung in den gew\u00e4hlten Farbton."}, "renderScale": {"min": 0.3, "max": 1.0, "step": 0.01, "tip": "Interne Shader-Aufl\u00f6sung relativ zu 1024\u00d7600."}};
+    const DEFAULT_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "curlSize": 1.08, "curlCount": 2.0, "curlDynamics": 1.0, "turbulence": 3.0, "edge": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeUpperThin": 1.0, "edgeLowerThin": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0, "softness": 1.05, "spread": 1.06, "redness": 0.0}, "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45, "speed": 0.2}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "redness": 0.75, "edgeUpperThin": 0.22, "edgeLowerThin": 0.22}}]};
+    const DEFAULT_MIN_CONFIG = {"baseParams": {"density": 1.0, "speed": 1.0, "curl": 1.0, "turbulence": 3.0, "edge": 1.0, "softness": 1.05, "spread": 1.06, "redness": 0.0, "curlSize": 1.08, "curlCount": 2.0, "curlDynamics": 1.0, "edgeUpper": 1.0, "edgeLower": 1.0, "edgeSharpness": 1.0, "edgeGradient": 0.5, "edgeBreakCount": 2.0, "edgeBreakStrength": 0.5, "edgeBreakSoftness": 1.0}, "offsets": [[0, 0], [0, 0], [0, 0], [0, 0]], "macros": [{"name": "Macro 1", "bindings": {"density": 0.55, "spread": 0.35, "softness": 0.25, "edgeBreakCount": 0.18}}, {"name": "Macro 2", "bindings": {"curl": 0.5, "curlSize": 0.3, "curlCount": 0.45, "curlDynamics": 0.35, "turbulence": 0.45, "speed": 0.2}}, {"name": "Macro 3", "bindings": {"edge": 0.5, "edgeSharpness": 0.35, "edgeUpper": 0.2, "edgeLower": 0.2, "edgeBreakStrength": 0.25, "redness": 0.75}}]};
+    const FULL_SHADER = "#version 460 core\n#include <flutter/runtime_effect.glsl>\n\nprecision mediump float;\n\nout vec4 fragColor;\n\nuniform vec2 uResolution;          // 0,1\nuniform float uTime;               // 2\nuniform float uDensity;            // 3\nuniform float uCurl;               // 4\nuniform float uCurlSize;           // 5\nuniform float uCurlCount;          // 6\nuniform float uCurlDynamics;       // 7\nuniform float uTurbulence;         // 8\nuniform float uEdge;               // 9\nuniform float uEdgeUpper;          // 10\nuniform float uEdgeLower;          // 11\nuniform float uEdgeUpperThin;      // 12\nuniform float uEdgeLowerThin;      // 13\nuniform float uEdgeSharpness;      // 14\nuniform float uEdgeGradient;       // 15\nuniform float uEdgeBreakCount;     // 16\nuniform float uEdgeBreakStrength;  // 17\nuniform float uEdgeBreakSoftness;  // 18\nuniform float uSoftness;           // 19\nuniform float uSpread;             // 20\nuniform float uRedness;           // 21\nuniform vec2 uOff1;                // 22,23\nuniform vec2 uOff2;                // 24,25\nuniform vec2 uOff3;                // 26,27\nuniform vec2 uOff4;                // 28,29\n\nfloat hash21(vec2 p) {\n  p = fract(p * vec2(0.1031, 0.11369));\n  p += dot(p, p.yx + 19.19);\n  return fract((p.x + p.y) * p.x);\n}\n\nfloat noise2(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  f = f * f * (3.0 - 2.0 * f);\n  float a = hash21(i);\n  float b = hash21(i + vec2(1.0, 0.0));\n  float c = hash21(i + vec2(0.0, 1.0));\n  float d = hash21(i + vec2(1.0, 1.0));\n  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);\n}\n\nfloat n2(vec2 p) {\n  float a = noise2(p);\n  float b = noise2(p * 2.03 + vec2(7.1, 3.4));\n  return mix(a, b, 0.35);\n}\n\nmat2 rot(float a) {\n  float s = sin(a);\n  float c = cos(a);\n  return mat2(c, -s, s, c);\n}\n\nvec2 swirl(vec2 p, vec2 center, float radius, float strength) {\n  vec2 d = p - center;\n  float r = length(d);\n  float w = 1.0 - smoothstep(radius * 0.28, radius, r);\n  float a = strength * w * (0.40 + 0.60 * (1.0 - clamp(r / radius, 0.0, 1.0)));\n  return center + rot(a) * d;\n}\n\nfloat edgeBreakMask(float x, float seed, float count, float strength, float softness) {\n  if (strength <= 0.0001 || count <= 0.0) return 0.0;\n\n  float m = 0.0;\n  float width = mix(0.012, 0.055, clamp(strength / 1.4, 0.0, 1.0));\n  float feather = mix(0.025, 0.30, clamp((softness - 0.2) / 2.8, 0.0, 1.0));\n\n  for (int i = 0; i < 8; i++) {\n    float fi = float(i);\n    float active = step(fi + 0.5, count);\n    float center = 0.16 + (fi + 0.55) / 8.0 * 1.90;\n    center += sin(seed * 17.0 + fi * 7.1) * 0.055;\n    float notch = 1.0 - smoothstep(width, width + feather, abs(x - center));\n    m = max(m, notch * active);\n  }\n  return clamp(m, 0.0, 1.0);\n}\n\nvec3 strandEval(\n  vec2 p,\n  vec2 src,\n  vec2 off,\n  float t,\n  float seed\n) {\n  vec2 q = p - src - off;\n  float x = q.x;\n  if (x <= 0.0) return vec3(0.0);\n\n  q.y *= 1.0 / mix(1.0, 1.32, clamp(uSpread - 1.0, -0.5, 1.2));\n\n  float dyn = max(0.001, uCurlDynamics);\n  float size = uCurlSize;\n  float seedA = fract(seed * 3.71);\n  float seedB = fract(seed * 5.13 + 0.17);\n  float posVar = clamp(length(off) * 1.35, 0.0, 1.0);\n  float sizeVarA = mix(0.84, 1.28, seedA);\n  float sizeVarB = mix(0.82, 1.24, seedB);\n  float curlVarA = mix(0.82, 1.18, seedA);\n  float curlVarB = mix(0.78, 1.22, seedB);\n\n  q = swirl(\n    q,\n    vec2(\n      0.50 + 0.08 * sin(t * 0.21 * dyn + seed * 3.1) + (seedA - 0.5) * 0.10,\n      -0.04 + 0.05 * sin(t * 0.17 * dyn + seed * 1.4) + (seedB - 0.5) * 0.08\n    ),\n    0.18 * size * sizeVarA * mix(0.95, 1.28, uSpread) * mix(1.0, 1.12, posVar),\n    0.98 * uCurl * curlVarA\n  );\n  q = swirl(\n    q,\n    vec2(\n      0.96 + 0.06 * sin(t * 0.15 * dyn + seed * 4.2) + (seedB - 0.5) * 0.12,\n      0.05 + 0.04 * sin(t * 0.13 * dyn + seed * 2.4) - (seedA - 0.5) * 0.08\n    ),\n    0.16 * size * sizeVarB * mix(0.95, 1.28, uSpread),\n    -1.10 * uCurl * curlVarB\n  );\n\n  q.y += (n2(vec2(x * 0.58 + seed * 4.1, t * 0.09 + seed * 2.3)) - 0.5) * 0.055 * uTurbulence;\n\n  float c1 = step(0.5, uCurlCount);\n  float c2 = step(1.5, uCurlCount);\n  float c3 = step(2.5, uCurlCount);\n  float c4 = step(3.5, uCurlCount);\n  float c5 = step(4.5, uCurlCount);\n  float c6 = step(5.5, uCurlCount);\n\n  q = mix(q, swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, uSpread), 0.78 * uCurl), c1);\n  q = mix(q, swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, uSpread), -0.72 * uCurl), c2);\n  q = mix(q, swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, uSpread), 0.58 * uCurl), c3);\n  q = mix(q, swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, uSpread), -0.46 * uCurl), c4);\n  q = mix(q, swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, uSpread), 0.52 * uCurl), c5);\n  q = mix(q, swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, uSpread), -0.38 * uCurl), c6);\n\n  float centerLine =\n      -0.14 * x\n    + 0.060 * sin(x * (1.30 + seedA * 0.40) + t * 0.29 + seed * 10.0)\n    + 0.024 * sin(x * (4.0 + seedB * 1.1) - t * 0.37 + seed * 16.0)\n    + 0.010 * sin(x * 7.5 + seed * 21.0 + t * 0.11)\n    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.048 * uTurbulence;\n\n  float y = q.y - centerLine;\n  float ad = abs(y);\n\n  float w = mix(0.024, 0.096, smoothstep(0.0, 1.52, x));\n  w *= mix(0.86, 1.52, clamp((uSoftness - 0.4) / 1.8, 0.0, 1.0));\n  w *= mix(0.88, 1.46, clamp((uSpread - 0.35) / 1.85, 0.0, 1.0));\n  w *= mix(0.92, 1.18, sizeVarA) * mix(1.0, 1.08, posVar);\n\n  float body = 1.0 - smoothstep(w * 0.08, w * 1.02, ad);\n  float veil = 1.0 - smoothstep(w * 1.02, w * 2.95, ad);\n\n  float sharp = mix(0.40, 2.10, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));\n  float upperThin = mix(1.55, 0.55, clamp((uEdgeUpperThin - 0.3) / 1.9, 0.0, 1.0));\n  float lowerThin = mix(1.55, 0.55, clamp((uEdgeLowerThin - 0.3) / 1.9, 0.0, 1.0));\n\n  float upperInner = mix(0.10, 0.32, sharp) * upperThin;\n  float upperOuter = mix(0.48, 0.90, sharp) * upperThin;\n  float lowerInner = mix(0.10, 0.32, sharp) * lowerThin;\n  float lowerOuter = mix(0.48, 0.90, sharp) * lowerThin;\n\n  float upperBand =\n      smoothstep(w * upperInner, w * (upperInner + 0.20), y) *\n      (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));\n\n  float lowerBand =\n      smoothstep(w * lowerInner, w * (lowerInner + 0.20), -y) *\n      (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));\n\n  float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));\n  edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);\n  float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));\n  edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);\n\n  float grad = clamp((x / 2.10) + (uEdgeGradient - 0.5), 0.0, 1.0);\n  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);\n  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);\n\n  float breakU = edgeBreakMask(x, seed + 0.31, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);\n  float breakL = edgeBreakMask(x, seed + 1.73, uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness);\n\n  float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));\n  bodyNoise = smoothstep(0.20, 0.88, bodyNoise);\n\n  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breakU * uEdgeBreakStrength);\n  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breakL * uEdgeBreakStrength);\n  float edgeMix = upperEdge + lowerEdge;\n\n  float fade = smoothstep(0.0, 0.08, x);\n  fade *= 1.0 - smoothstep(1.42, 2.30, x);\n  fade *= 1.0 - smoothstep(0.80, 1.34, p.y);\n\n  float density = (body * 0.25 + veil * 0.11 + edgeMix * 0.45) * bodyNoise * fade;\n  float edgeWeight = edgeMix * fade;\n  float mist = veil * 0.08 * fade;\n  return vec3(density, edgeWeight, mist);\n}\n\nvec3 smokeSide(vec2 p, float side, float t) {\n  vec2 pp = p;\n  pp.x *= -side;\n\n  float s2 = smoothstep(0.45, 0.82, uDensity);\n  float s3 = smoothstep(0.82, 1.18, uDensity);\n  float s4 = smoothstep(1.18, 1.55, uDensity);\n\n  vec3 a = strandEval(pp,                     vec2(-1.04, -0.10), uOff1 * vec2(-side, 1.0), t,            0.19 + side * 0.11);\n  vec3 b = strandEval(pp + vec2(0.0, 0.03),  vec2(-1.08,  0.00), uOff2 * vec2(-side, 1.0), t * 0.96 + 2.6, 0.57 + side * 0.07);\n  vec3 c = strandEval(pp + vec2(0.0, -0.04), vec2(-1.11,  0.09), uOff3 * vec2(-side, 1.0), t * 1.03 + 4.1, 0.91 + side * 0.05);\n  vec3 d = strandEval(pp + vec2(0.0, 0.06),  vec2(-1.14, -0.18), uOff4 * vec2(-side, 1.0), t * 0.90 + 6.7, 1.29 + side * 0.09);\n\n  float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;\n  float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;\n  float mist = a.z + b.z * s2 + c.z * s3 + d.z * s4;\n  return vec3(density, edge, mist);\n}\n\nvoid main() {\n  vec2 fragCoord = FlutterFragCoord().xy;\n  vec2 uv = fragCoord / uResolution;\n  vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;\n  float t = uTime;\n\n  vec3 bg = vec3(0.0, 0.0, 0.0);\n\n  vec3 left  = smokeSide(p, -1.0, t);\n  vec3 right = smokeSide(p,  1.0, t + 1.1);\n\n  float density = left.x + right.x;\n  float edge = left.y + right.y;\n  float mist = left.z + right.z;\n\n  float alpha = 1.0 - exp(-(density + mist * 0.55) * 1.12);\n  alpha = clamp(alpha, 0.0, 0.82);\n\n  float edgeRatio = clamp(edge / max(density + mist * 0.4, 0.0001), 0.0, 1.0);\n  edgeRatio *= mix(0.45, 1.80, clamp((uEdge - 0.2) / 2.2, 0.0, 1.0));\n  edgeRatio = clamp(edgeRatio, 0.0, 1.0);\n\n  float toneNoise = n2(vec2(p.x * 1.9 + 1.1, p.y * 2.6 - t * 0.02));\n  float tone = mix(0.78, 0.92, toneNoise);\n\n  vec3 neutralBodyA = vec3(0.50, 0.52, 0.56);\n  vec3 neutralBodyB = vec3(0.74, 0.76, 0.79);\n  vec3 neutralEdge  = vec3(0.94, 0.95, 0.96);\n\n  vec3 tint = clamp(vec3(0.98, 0.27, 0.18), 0.0, 1.0);\n  vec3 tintBodyA = tint * 0.28;\n  vec3 tintBodyB = mix(tint * 0.68, tint, 0.55);\n  vec3 tintEdge  = mix(vec3(0.98), tint, 0.72);\n\n  vec3 bodyColor = mix(neutralBodyA, neutralBodyB, tone);\n  vec3 edgeColor = neutralEdge;\n  vec3 targetBody = mix(tintBodyA, tintBodyB, tone);\n\n  bodyColor = mix(bodyColor, targetBody, uRedness);\n  edgeColor = mix(edgeColor, tintEdge, uRedness);\n\n  vec3 smokeColor = mix(bodyColor, edgeColor, edgeRatio);\n\n  vec3 col = mix(bg, smokeColor, alpha);\n  float vignette = smoothstep(1.24, 0.28, length(uv - 0.5));\n  col *= vignette;\n\n  fragColor = vec4(col, 1.0);\n}";
+    const TARGET_SAFE_FRAG = "#version 460 core\n#include <flutter/runtime_effect.glsl>\n\nprecision mediump float;\nout vec4 fragColor;\n\nuniform vec2 uResolution;         // 0,1\nuniform float uTime;              // 2  (integrated host time)\nuniform float uDensity;           // 3\nuniform float uCurl;              // 4\nuniform float uTurbulence;        // 5\nuniform float uEdge;              // 6\nuniform float uSoftness;          // 7\nuniform float uSpread;            // 8\nuniform float uRedness;           // 9\nuniform float uCurlSize;          // 10\nuniform float uCurlCount;         // 11\nuniform float uCurlDynamics;      // 12\nuniform float uEdgeUpper;         // 13\nuniform float uEdgeLower;         // 14\nuniform float uEdgeSharpness;     // 15\nuniform float uEdgeGradient;      // 16\nuniform float uEdgeBreakCount;    // 17\nuniform float uEdgeBreakStrength; // 18\nuniform float uEdgeBreakSoftness; // 19\nuniform vec2 uOff1;               // 20,21\nuniform vec2 uOff2;               // 22,23\nuniform vec2 uOff3;               // 24,25\nuniform vec2 uOff4;               // 26,27\n\nfloat hash21(vec2 p) {\n  p = fract(p * vec2(0.1031, 0.11369));\n  p += dot(p, p.yx + 19.19);\n  return fract((p.x + p.y) * p.x);\n}\n\nfloat noise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  f = f * f * (3.0 - 2.0 * f);\n  float a = hash21(i);\n  float b = hash21(i + vec2(1.0, 0.0));\n  float c = hash21(i + vec2(0.0, 1.0));\n  float d = hash21(i + vec2(1.0, 1.0));\n  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);\n}\n\nfloat n2(vec2 p) {\n  float a = noise(p);\n  float b = noise(p * 2.03 + vec2(7.1, 3.4));\n  return mix(a, b, 0.35);\n}\n\nmat2 rot(float a) {\n  float s = sin(a);\n  float c = cos(a);\n  return mat2(c, -s, s, c);\n}\n\nvec2 swirl(vec2 p, vec2 center, float radius, float strength) {\n  vec2 d = p - center;\n  float r = length(d);\n  float w = 1.0 - smoothstep(radius * 0.28, radius, r);\n  float a = strength * w * (0.40 + 0.60 * (1.0 - clamp(r / radius, 0.0, 1.0)));\n  d = rot(a) * d;\n  return center + d;\n}\n\nfloat breakMask(float x, float seed) {\n  if (uEdgeBreakCount < 0.5 || uEdgeBreakStrength <= 0.001) return 0.0;\n\n  float m = 0.0;\n  float count = uEdgeBreakCount;\n  float baseWidth = mix(0.015, 0.055, clamp(uEdgeBreakStrength / 1.4, 0.0, 1.0));\n  float soft = mix(0.04, 0.22, clamp(uEdgeBreakSoftness / 3.0, 0.0, 1.0));\n\n  for (int i = 0; i < 8; i++) {\n    if (float(i) >= count) break;\n    float fi = float(i);\n    float center = 0.18 + (fi + 0.5) / max(count, 1.0) * 1.85;\n    center += sin(seed * 17.0 + fi * 7.1) * 0.06;\n    float d = abs(x - center);\n    float notch = 1.0 - smoothstep(baseWidth, baseWidth + soft, d);\n    m = max(m, notch);\n  }\n  return m;\n}\n\nvec3 strandEval(vec2 p, vec2 src, float t, float seed, float curl, float turbulence, float spread, float softness) {\n  vec2 q = p - src;\n  float x = q.x;\n  if (x <= 0.0) return vec3(0.0);\n\n  q.y *= 1.0 / mix(1.0, 1.30, spread - 1.0);\n\n  float dyn = uCurlDynamics;\n  float size = uCurlSize;\n  float count = uCurlCount;\n\n  q = swirl(q, vec2(0.52 + 0.05 * sin(t * 0.21 * dyn + seed * 3.1), -0.03 + 0.04 * sin(t * 0.17 * dyn + seed * 1.4)), 0.16 * size * mix(0.9, 1.2, spread), 0.92 * curl);\n  q = swirl(q, vec2(0.98 + 0.04 * sin(t * 0.15 * dyn + seed * 4.2), 0.04 + 0.03 * sin(t * 0.13 * dyn + seed * 2.4)), 0.14 * size * mix(0.9, 1.2, spread), -1.06 * curl);\n\n  if (count > 0.5) {\n    q = swirl(q, vec2(1.34 + 0.05 * sin(t * 0.11 * dyn + seed * 5.7), -0.02 + 0.025 * sin(t * 0.19 * dyn + seed * 1.8)), 0.12 * size * mix(0.9, 1.2, spread), 0.78 * curl);\n  }\n  if (count > 1.5) {\n    q = swirl(q, vec2(0.74 + 0.05 * sin(t * 0.16 * dyn + seed * 6.1), 0.10 + 0.025 * sin(t * 0.12 * dyn + seed * 3.4)), 0.11 * size * mix(0.9, 1.2, spread), -0.72 * curl);\n  }\n  if (count > 2.5) {\n    q = swirl(q, vec2(1.62 + 0.04 * sin(t * 0.10 * dyn + seed * 8.0), 0.03 + 0.02 * sin(t * 0.09 * dyn + seed * 2.7)), 0.10 * size * mix(0.9, 1.2, spread), 0.58 * curl);\n  }\n  if (count > 3.5) {\n    q = swirl(q, vec2(1.92 + 0.03 * sin(t * 0.08 * dyn + seed * 9.1), -0.05 + 0.02 * sin(t * 0.15 * dyn + seed * 4.3)), 0.09 * size * mix(0.9, 1.2, spread), -0.46 * curl);\n  }\n  if (count > 4.5) {\n    q = swirl(q, vec2(0.42 + 0.04 * sin(t * 0.19 * dyn + seed * 5.0), 0.07 + 0.02 * sin(t * 0.11 * dyn + seed * 1.6)), 0.09 * size * mix(0.9, 1.2, spread), 0.52 * curl);\n  }\n  if (count > 5.5) {\n    q = swirl(q, vec2(2.10 + 0.03 * sin(t * 0.07 * dyn + seed * 12.0), 0.02 + 0.02 * sin(t * 0.10 * dyn + seed * 6.2)), 0.08 * size * mix(0.9, 1.2, spread), -0.38 * curl);\n  }\n\n  float centerLine =\n      -0.14 * x\n    + 0.055 * sin(x * 1.45 + t * 0.29 + seed * 10.0)\n    + 0.018 * sin(x * 4.4 - t * 0.37 + seed * 16.0)\n    + (n2(vec2(x * 0.72 + seed * 2.0, -t * 0.03)) - 0.5) * 0.040 * turbulence;\n\n  float y = q.y - centerLine;\n  float ad = abs(y);\n\n  float w = mix(0.018, 0.072, smoothstep(0.0, 1.52, x));\n  w *= mix(0.82, 1.34, softness);\n  w *= mix(0.80, 1.34, spread);\n\n  float body = 1.0 - smoothstep(w * 0.10, w * 0.92, ad);\n  float veil = 1.0 - smoothstep(w * 0.92, w * 2.60, ad);\n\n  float sharp = mix(0.55, 1.95, clamp((uEdgeSharpness - 0.4) / 2.4, 0.0, 1.0));\n  float upperInner = mix(0.08, 0.30, sharp);\n  float upperOuter = mix(0.55, 0.92, sharp);\n  float lowerInner = mix(0.08, 0.30, sharp);\n  float lowerOuter = mix(0.55, 0.92, sharp);\n\n  float upperBand = smoothstep(w * upperInner, w * upperInner + w * 0.28, y) * (1.0 - smoothstep(w * upperOuter, w * (upperOuter + 0.18), y));\n  float lowerBand = smoothstep(w * lowerInner, w * lowerInner + w * 0.28, -y) * (1.0 - smoothstep(w * lowerOuter, w * (lowerOuter + 0.18), -y));\n\n  float edgeNoiseUpper = n2(vec2(x * 1.30 - t * 0.04 + seed * 8.0, y * 7.2 + seed * 3.4));\n  edgeNoiseUpper = smoothstep(0.34, 0.90, edgeNoiseUpper);\n  float edgeNoiseLower = n2(vec2(x * 1.15 + t * 0.03 + seed * 4.8, y * 6.1 - seed * 1.7));\n  edgeNoiseLower = smoothstep(0.32, 0.90, edgeNoiseLower);\n\n  float grad = clamp((x / 2.15) + (uEdgeGradient - 0.5), 0.0, 1.0);\n  float upperWeight = mix(uEdgeUpper, uEdgeLower, grad);\n  float lowerWeight = mix(uEdgeLower, uEdgeUpper, grad);\n\n  float breaksUpper = breakMask(x, seed + 0.31);\n  float breaksLower = breakMask(x, seed + 1.73);\n\n  float bodyNoise = n2(vec2(x * 1.10 + seed * 5.0, y * 4.8 - t * 0.02));\n  bodyNoise = smoothstep(0.20, 0.88, bodyNoise);\n\n  float upperEdge = upperBand * edgeNoiseUpper * upperWeight * (1.0 - breaksUpper * uEdgeBreakStrength);\n  float lowerEdge = lowerBand * edgeNoiseLower * lowerWeight * (1.0 - breaksLower * uEdgeBreakStrength);\n  float edgeMix = upperEdge + lowerEdge;\n\n  float fade = smoothstep(0.0, 0.08, x);\n  fade *= 1.0 - smoothstep(1.42, 2.30, x);\n  fade *= 1.0 - smoothstep(0.80, 1.34, p.y);\n\n  float density = (body * 0.25 + veil * 0.11 + edgeMix * 0.45) * bodyNoise * fade;\n  float edgeWeight = edgeMix * fade;\n  float mist = veil * 0.08 * fade;\n\n  return vec3(density, edgeWeight, mist);\n}\n\nvec3 smokeSide(vec2 p, float side, float t, float densityCtrl, float curl, float turbulence, float spread, float softness) {\n  vec2 pp = p;\n  pp.x *= -side;\n\n  float s2 = smoothstep(0.45, 0.82, densityCtrl);\n  float s3 = smoothstep(0.82, 1.18, densityCtrl);\n  float s4 = smoothstep(1.18, 1.55, densityCtrl);\n\n  float localSpread = mix(0.90, 1.34, smoothstep(0.50, 1.55, densityCtrl)) * spread;\n  float localSoft = mix(0.92, 1.18, smoothstep(0.45, 1.55, densityCtrl)) * softness;\n\n  vec3 a = strandEval(pp - uOff1 * vec2(-side, 1.0),                     vec2(-1.04, -0.10), t,            0.19 + side * 0.11, curl, turbulence, localSpread, localSoft);\n  vec3 b = strandEval(pp + vec2(0.0, 0.03) - uOff2 * vec2(-side, 1.0),   vec2(-1.08,  0.00), t * 0.96 + 2.6, 0.57 + side * 0.07, curl, turbulence, localSpread, localSoft);\n  vec3 c = strandEval(pp + vec2(0.0, -0.04) - uOff3 * vec2(-side, 1.0),  vec2(-1.11,  0.09), t * 1.03 + 4.1, 0.91 + side * 0.05, curl * 1.02, turbulence, localSpread, localSoft);\n  vec3 d = strandEval(pp + vec2(0.0, 0.06) - uOff4 * vec2(-side, 1.0),   vec2(-1.14, -0.18), t * 0.90 + 6.7, 1.29 + side * 0.09, curl * 0.92, turbulence, localSpread, localSoft);\n\n  float density = a.x + b.x * s2 + c.x * s3 + d.x * s4;\n  float edge = a.y + b.y * s2 + c.y * s3 + d.y * s4;\n  float mist = a.z + b.z * s2 + c.z * s3 + d.z * s4;\n  return vec3(density, edge, mist);\n}\n\nvoid main() {\n  vec2 fragCoord = FlutterFragCoord().xy;\n  vec2 uv = fragCoord / uResolution;\n  vec2 p = (fragCoord - 0.5 * uResolution) / uResolution.y;\n  float t = uTime;\n\n  vec3 bg = vec3(0.0, 0.0, 0.0);\n\n  vec3 left  = smokeSide(p, -1.0, t,       uDensity, uCurl, uTurbulence, uSpread, uSoftness);\n  vec3 right = smokeSide(p,  1.0, t + 1.1, uDensity, uCurl, uTurbulence, uSpread, uSoftness);\n\n  float density = left.x + right.x;\n  float edge = left.y + right.y;\n  float mist = left.z + right.z;\n\n  float alpha = 1.0 - exp(-(density + mist * 0.55) * 1.12);\n  alpha = clamp(alpha, 0.0, 0.82);\n\n  float edgeRatio = clamp(edge / max(density + mist * 0.4, 0.0001), 0.0, 1.0);\n  edgeRatio *= mix(0.45, 1.80, clamp((uEdge - 0.2) / 2.2, 0.0, 1.0));\n  edgeRatio = clamp(edgeRatio, 0.0, 1.0);\n\n  float toneNoise = n2(vec2(p.x * 1.9 + 1.1, p.y * 2.6 - t * 0.02));\n  float tone = mix(0.78, 0.92, toneNoise);\n\n  vec3 neutralBodyA = vec3(0.50, 0.52, 0.56);\n  vec3 neutralBodyB = vec3(0.74, 0.76, 0.79);\n  vec3 neutralEdge  = vec3(0.94, 0.95, 0.96);\n\n  vec3 redBodyA = vec3(0.28, 0.04, 0.03);\n  vec3 redBodyB = vec3(0.70, 0.12, 0.08);\n  vec3 redEdge  = vec3(0.98, 0.27, 0.18);\n\n  vec3 bodyColor = mix(neutralBodyA, neutralBodyB, tone);\n  vec3 edgeColor = neutralEdge;\n\n  vec3 redBody = mix(redBodyA, redBodyB, tone);\n  vec3 redEdgeColor = redEdge;\n\n  bodyColor = mix(bodyColor, redBody, uRedness);\n  edgeColor = mix(edgeColor, redEdgeColor, uRedness);\n\n  vec3 smokeColor = mix(bodyColor, edgeColor, edgeRatio);\n\n  vec3 col = mix(bg, smokeColor, alpha);\n\n  float vignette = smoothstep(1.24, 0.28, length(uv - 0.5));\n  col *= vignette;\n\n  fragColor = vec4(col, 1.0);\n}\n";
+    const SAVE_KEY = 'smoke_shader_clean_stable_v1';
 
     function adaptFlutterToWeb(src) {
       return src
@@ -261,54 +309,63 @@
         .replaceAll('FlutterFragCoord().xy', 'gl_FragCoord.xy')
         .replaceAll('fragColor = vec4(col, 1.0);', 'gl_FragColor = vec4(col, 1.0);');
     }
-    const WEB_FRAG = adaptFlutterToWeb(FLUTTER_FRAG);
 
-    const state = structuredClone(DEFAULT_CONFIG);
-    const host = {
-      macrosPending: [0,0,0],
-      macrosTarget: [0,0,0],
-      macrosApplied: [0,0,0],
-      speedPending: state.baseParams.speed || 1.0,
-      speedTarget: state.baseParams.speed || 1.0,
-      speedApplied: state.baseParams.speed || 1.0,
-      curlCountApplied: state.baseParams.curlCount || 2.0,
-      curlDynamicsApplied: state.baseParams.curlDynamics || 1.0,
-      renderScale: 0.50,
-      overlayUrl: null
+    function clamp(v,min,max) { return Math.max(min, Math.min(max, v)); }
+    function fmt(name, v) {
+      const step = PARAM_SPECS[name]?.step ?? 0.01;
+      return step >= 1 ? Number(v).toFixed(0) : Number(v).toFixed(2);
+    }
+    function displayName(name) {
+      return name === 'redness' ? 'color' : name;
+    }
+
+    let state = structuredClone(DEFAULT_CONFIG);
+    let uiState = {
+      authoring: {
+        speedPending: state.baseParams.speed,
+        speedTarget: state.baseParams.speed,
+        speedApplied: state.baseParams.speed,
+        curlCountApplied: state.baseParams.curlCount,
+        curlDynamicsApplied: state.baseParams.curlDynamics,
+        renderScale: 0.50,
+      },
+      runtime: {
+        macroPending: [0,0,0],
+        macroTarget: [0,0,0],
+        macroApplied: [0,0,0],
+        speedPending: state.baseParams.speed,
+        speedTarget: state.baseParams.speed,
+        speedApplied: state.baseParams.speed,
+        curlCountApplied: state.baseParams.curlCount,
+        curlDynamicsApplied: state.baseParams.curlDynamics,
+        renderScale: 0.50,
+        overlayUrl: null,
+      },
+      minimal: {
+        macroPending: [0,0,0],
+        macroTarget: [0,0,0],
+        macroApplied: [0,0,0],
+        speedPending: state.baseParams.speed,
+        speedTarget: state.baseParams.speed,
+        speedApplied: state.baseParams.speed,
+        renderScale: 0.50,
+        overlayUrl: null,
+        tintRgb: [250,69,46],
+      },
     };
 
     const authoringLog = document.getElementById('authoringLog');
     const runtimeLog = document.getElementById('runtimeLog');
+    const minimalLog = document.getElementById('minimalLog');
 
     window.addEventListener('error', (e) => {
       const msg = 'JS error: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
       authoringLog.textContent = msg;
       runtimeLog.textContent = msg;
+      minimalLog.textContent = msg;
     });
 
-    function compileProgram(gl, fragSrc) {
-      function make(type, src) {
-        const s = gl.createShader(type);
-        gl.shaderSource(s, src);
-        gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-          throw new Error(gl.getShaderInfoLog(s) || 'Unknown shader compile error');
-        }
-        return s;
-      }
-      const vs = make(gl.VERTEX_SHADER, 'attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition,0.0,1.0); }');
-      const fs = make(gl.FRAGMENT_SHADER, fragSrc);
-      const p = gl.createProgram();
-      gl.attachShader(p, vs);
-      gl.attachShader(p, fs);
-      gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-        throw new Error(gl.getProgramInfoLog(p) || 'Unknown program link error');
-      }
-      return p;
-    }
-
-    function createRenderer(canvas, logEl) {
+    function createRenderer(canvas, logEl, fragSrc) {
       const gl = canvas.getContext('webgl', {
         antialias:false, alpha:false, depth:false, stencil:false, preserveDrawingBuffer:false
       });
@@ -317,16 +374,27 @@
         throw new Error('WebGL not supported');
       }
 
-      let program;
-      try {
-        program = compileProgram(gl, WEB_FRAG);
-        logEl.textContent = 'Shader compile/link ok.';
-      } catch (e) {
-        logEl.textContent = 'Compile failed:\n' + e.message;
-        throw e;
+      function compileProgram(src) {
+        const vsSrc = 'attribute vec2 aPosition; void main(){ gl_Position = vec4(aPosition,0.0,1.0); }';
+        function mk(type, s) {
+          const sh = gl.createShader(type);
+          gl.shaderSource(sh, s);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(sh) || 'Shader compile error');
+          }
+          return sh;
+        }
+        const program = gl.createProgram();
+        gl.attachShader(program, mk(gl.VERTEX_SHADER, vsSrc));
+        gl.attachShader(program, mk(gl.FRAGMENT_SHADER, adaptFlutterToWeb(src)));
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          throw new Error(gl.getProgramInfoLog(program) || 'Program link error');
+        }
+        return program;
       }
 
-      gl.useProgram(program);
       const quad = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, quad);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -334,469 +402,373 @@
         -1,1, 1,-1, 1,1
       ]), gl.STATIC_DRAW);
 
-      const aPosition = gl.getAttribLocation(program, 'aPosition');
-      gl.enableVertexAttribArray(aPosition);
-      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
-
-      const u = {
-        res: gl.getUniformLocation(program,'uResolution'),
-        time: gl.getUniformLocation(program,'uTime'),
-        density: gl.getUniformLocation(program,'uDensity'),
-        curl: gl.getUniformLocation(program,'uCurl'),
-        curlSize: gl.getUniformLocation(program,'uCurlSize'),
-        curlCount: gl.getUniformLocation(program,'uCurlCount'),
-        curlDynamics: gl.getUniformLocation(program,'uCurlDynamics'),
-        turbulence: gl.getUniformLocation(program,'uTurbulence'),
-        edge: gl.getUniformLocation(program,'uEdge'),
-        edgeUpper: gl.getUniformLocation(program,'uEdgeUpper'),
-        edgeLower: gl.getUniformLocation(program,'uEdgeLower'),
-        edgeUpperThin: gl.getUniformLocation(program,'uEdgeUpperThin'),
-        edgeLowerThin: gl.getUniformLocation(program,'uEdgeLowerThin'),
-        edgeSharpness: gl.getUniformLocation(program,'uEdgeSharpness'),
-        edgeGradient: gl.getUniformLocation(program,'uEdgeGradient'),
-        edgeBreakCount: gl.getUniformLocation(program,'uEdgeBreakCount'),
-        edgeBreakStrength: gl.getUniformLocation(program,'uEdgeBreakStrength'),
-        edgeBreakSoftness: gl.getUniformLocation(program,'uEdgeBreakSoftness'),
-        softness: gl.getUniformLocation(program,'uSoftness'),
-        spread: gl.getUniformLocation(program,'uSpread'),
-        color: gl.getUniformLocation(program,'uColor'),
-        tintColor: gl.getUniformLocation(program,'uTintColor'),
-        off1: gl.getUniformLocation(program,'uOff1'),
-        off2: gl.getUniformLocation(program,'uOff2'),
-        off3: gl.getUniformLocation(program,'uOff3'),
-        off4: gl.getUniformLocation(program,'uOff4')
+      const renderer = {
+        gl, quad, program: null, uniforms: {},
+        setProgram(src) {
+          try {
+            this.program = compileProgram(src);
+            gl.useProgram(this.program);
+            const aPosition = gl.getAttribLocation(this.program, 'aPosition');
+            gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+            gl.enableVertexAttribArray(aPosition);
+            gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+            this.uniforms = {
+              res: gl.getUniformLocation(this.program,'uResolution'),
+              time: gl.getUniformLocation(this.program,'uTime'),
+              density: gl.getUniformLocation(this.program,'uDensity'),
+              curl: gl.getUniformLocation(this.program,'uCurl'),
+              turbulence: gl.getUniformLocation(this.program,'uTurbulence'),
+              edge: gl.getUniformLocation(this.program,'uEdge'),
+              softness: gl.getUniformLocation(this.program,'uSoftness'),
+              spread: gl.getUniformLocation(this.program,'uSpread'),
+              redness: gl.getUniformLocation(this.program,'uRedness'),
+              curlSize: gl.getUniformLocation(this.program,'uCurlSize'),
+              curlCount: gl.getUniformLocation(this.program,'uCurlCount'),
+              curlDynamics: gl.getUniformLocation(this.program,'uCurlDynamics'),
+              edgeUpper: gl.getUniformLocation(this.program,'uEdgeUpper'),
+              edgeLower: gl.getUniformLocation(this.program,'uEdgeLower'),
+              edgeSharpness: gl.getUniformLocation(this.program,'uEdgeSharpness'),
+              edgeGradient: gl.getUniformLocation(this.program,'uEdgeGradient'),
+              edgeBreakCount: gl.getUniformLocation(this.program,'uEdgeBreakCount'),
+              edgeBreakStrength: gl.getUniformLocation(this.program,'uEdgeBreakStrength'),
+              edgeBreakSoftness: gl.getUniformLocation(this.program,'uEdgeBreakSoftness'),
+              edgeUpperThin: gl.getUniformLocation(this.program,'uEdgeUpperThin'),
+              edgeLowerThin: gl.getUniformLocation(this.program,'uEdgeLowerThin'),
+              off1: gl.getUniformLocation(this.program,'uOff1'),
+              off2: gl.getUniformLocation(this.program,'uOff2'),
+              off3: gl.getUniformLocation(this.program,'uOff3'),
+              off4: gl.getUniformLocation(this.program,'uOff4'),
+            };
+            logEl.textContent = 'Shader compile/link ok.';
+          } catch (err) {
+            logEl.textContent = 'Compile failed:\n' + err.message;
+            throw err;
+          }
+        },
       };
-      return { gl, program, u };
+      renderer.setProgram(fragSrc);
+      return renderer;
     }
 
-    const authoring = createRenderer(document.getElementById('authoringCanvas'), authoringLog);
-    const runtimeR = createRenderer(document.getElementById('runtimeCanvas'), runtimeLog);
-
-    function clamp(v,min,max) { return Math.max(min, Math.min(max, v)); }
-    function fmt(name, v) {
-      const step = PARAM_SPECS[name]?.step ?? 0.01;
-      return step >= 1 ? Number(v).toFixed(0) : Number(v).toFixed(2);
+    function buildTargetSafeFragVariant(rgb) {
+      let frag = TARGET_SAFE_FRAG;
+      const rr = (rgb[0] / 255);
+      const gg = (rgb[1] / 255);
+      const bb = (rgb[2] / 255);
+      const bodyA = `vec3 redBodyA = vec3(${(0.28*rr).toFixed(6)}, ${(0.28*gg).toFixed(6)}, ${(0.28*bb).toFixed(6)});`;
+      const bodyB = `vec3 redBodyB = vec3(${(0.70*rr).toFixed(6)}, ${(0.70*gg).toFixed(6)}, ${(0.70*bb).toFixed(6)});`;
+      const edge = `vec3 redEdge  = vec3(${rr.toFixed(6)}, ${gg.toFixed(6)}, ${bb.toFixed(6)});`;
+      frag = frag.replace('vec3 redBodyA = vec3(0.28, 0.04, 0.03);', bodyA);
+      frag = frag.replace('vec3 redBodyB = vec3(0.70, 0.12, 0.08);', bodyB);
+      frag = frag.replace('vec3 redEdge  = vec3(0.98, 0.27, 0.18);', edge);
+      // keep background hard black for minimal export
+      return frag;
     }
 
-    function hexFromRgb(rgb) {
-      return '#' + rgb.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
-    }
-    function rgbFromHex(hex) {
-      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      if (!m) return [255, 255, 255];
-      return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+    const authoringRenderer = createRenderer(document.getElementById('authoringCanvas'), authoringLog, FULL_SHADER);
+    const runtimeRenderer = createRenderer(document.getElementById('runtimeCanvas'), runtimeLog, FULL_SHADER);
+    let minimalRenderer = createRenderer(document.getElementById('minimalCanvas'), minimalLog, buildTargetSafeFragVariant(uiState.minimal.tintRgb));
+
+    function rebuildMinimalRenderer() {
+      minimalRenderer.setProgram(buildTargetSafeFragVariant(uiState.minimal.tintRgb));
     }
 
     function snapshotSavegame() {
       return {
-        version: 3,
-        state: structuredClone(state),
+        state,
         ui: {
-          renderScale: host.renderScale,
-          macros: [...host.macrosPending],
-          speedPending: host.speedPending,
+          authoring: {
+            renderScale: uiState.authoring.renderScale,
+            speedPending: uiState.authoring.speedPending
+          },
+          runtime: {
+            renderScale: uiState.runtime.renderScale,
+            macroPending: uiState.runtime.macroPending,
+            speedPending: uiState.runtime.speedPending
+          },
+          minimal: {
+            renderScale: uiState.minimal.renderScale,
+            macroPending: uiState.minimal.macroPending,
+            speedPending: uiState.minimal.speedPending,
+            tintRgb: uiState.minimal.tintRgb
+          }
         }
       };
     }
+
+    function applySavegame(save) {
+      if (save.state) {
+        state = structuredClone(save.state);
+      }
+      if (save.ui) {
+        if (save.ui.authoring) {
+          uiState.authoring.renderScale = clamp(Number(save.ui.authoring.renderScale ?? uiState.authoring.renderScale), 0.30, 1.00);
+          uiState.authoring.speedPending = clamp(Number(save.ui.authoring.speedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
+          uiState.authoring.speedTarget = uiState.authoring.speedPending;
+        }
+        if (save.ui.runtime) {
+          uiState.runtime.renderScale = clamp(Number(save.ui.runtime.renderScale ?? uiState.runtime.renderScale), 0.30, 1.00);
+          const m = save.ui.runtime.macroPending || [0,0,0];
+          uiState.runtime.macroPending = m.map(v => clamp(Number(v), 0, 100));
+          uiState.runtime.macroTarget = [...uiState.runtime.macroPending];
+          uiState.runtime.speedPending = clamp(Number(save.ui.runtime.speedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
+          uiState.runtime.speedTarget = uiState.runtime.speedPending;
+        }
+        if (save.ui.minimal) {
+          uiState.minimal.renderScale = clamp(Number(save.ui.minimal.renderScale ?? uiState.minimal.renderScale), 0.30, 1.00);
+          const m = save.ui.minimal.macroPending || [0,0,0];
+          uiState.minimal.macroPending = m.map(v => clamp(Number(v), 0, 100));
+          uiState.minimal.macroTarget = [...uiState.minimal.macroPending];
+          uiState.minimal.speedPending = clamp(Number(save.ui.minimal.speedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
+          uiState.minimal.speedTarget = uiState.minimal.speedPending;
+          if (Array.isArray(save.ui.minimal.tintRgb) && save.ui.minimal.tintRgb.length === 3) {
+            uiState.minimal.tintRgb = save.ui.minimal.tintRgb.map(v => clamp(Number(v),0,255));
+            rebuildMinimalRenderer();
+          }
+        }
+      }
+    }
+
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) applySavegame(JSON.parse(raw));
+    } catch(e) {}
 
     let saveTimer = null;
     function markDirty() {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        try {
-          localStorage.setItem(SAVE_KEY, JSON.stringify(snapshotSavegame()));
-        } catch (e) {
-          console.warn('save failed', e);
-        }
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(snapshotSavegame())); } catch(e) {}
       }, 150);
     }
 
-    function applySavegame(save) {
-      if (!save || !save.state) return;
-      const incoming = save.state;
-      if (incoming.baseParams) {
-        for (const [name, spec] of Object.entries(PARAM_SPECS)) {
-          if (name === 'renderScale') continue;
-          if (incoming.baseParams[name] !== undefined) {
-            state.baseParams[name] = clamp(Number(incoming.baseParams[name]), spec.min, spec.max);
-          }
-        }
+    // tabs
+    const perfAuthoring = document.getElementById('authoringPerf');
+    const perfRuntime = document.getElementById('runtimePerf');
+    const perfMinimal = document.getElementById('minimalPerf');
+    function showTab(which) {
+      document.getElementById('tabAuthoring').classList.toggle('active', which==='authoring');
+      document.getElementById('tabRuntime').classList.toggle('active', which==='runtime');
+      document.getElementById('tabMinimal').classList.toggle('active', which==='minimal');
+      document.getElementById('authoringPanel').classList.toggle('hidden', which!=='authoring');
+      document.getElementById('runtimePanel').classList.toggle('hidden', which!=='runtime');
+      document.getElementById('minimalPanel').classList.toggle('hidden', which!=='minimal');
+      document.getElementById('authoringStage').classList.toggle('hidden', which!=='authoring');
+      document.getElementById('runtimeStage').classList.toggle('hidden', which!=='runtime');
+      document.getElementById('minimalStage').classList.toggle('hidden', which!=='minimal');
+      perfAuthoring.classList.toggle('hidden', which!=='authoring');
+      perfRuntime.classList.toggle('hidden', which!=='runtime');
+      perfMinimal.classList.toggle('hidden', which!=='minimal');
+    }
+    document.getElementById('tabAuthoring').addEventListener('click',()=>showTab('authoring'));
+    document.getElementById('tabRuntime').addEventListener('click',()=>showTab('runtime'));
+    document.getElementById('tabMinimal').addEventListener('click',()=>showTab('minimal'));
+
+    // authoring macros UI
+    function buildMacroSliderGroup(containerId, targetState) {
+      const host = document.getElementById(containerId);
+      host.innerHTML = '';
+      targetState.macroRefs = [];
+      for (let i=0;i<3;i++) {
+        const wrap = document.createElement('div');
+        wrap.className = 'control';
+        wrap.innerHTML = `
+          <div class="row">
+            <div class="label"><span>${state.macros[i].name}</span><span class="info" data-tip="Runtime-Makro 0–100. Dieselbe Host-Mapping-Logik wie in Flutter.">i</span></div>
+            <span class="value">${targetState.macroPending ? targetState.macroPending[i].toFixed(0) : '0'}</span>
+          </div>
+          <input type="range" min="0" max="100" step="1" value="${targetState.macroPending ? targetState.macroPending[i] : 0}">
+        `;
+        const value = wrap.querySelector('.value');
+        const label = wrap.querySelector('.label span');
+        const slider = wrap.querySelector('input');
+        slider.addEventListener('input', () => {
+          targetState.macroPending[i] = parseFloat(slider.value);
+          targetState.macroTarget[i] = targetState.macroPending[i];
+          value.textContent = targetState.macroPending[i].toFixed(0);
+          markDirty();
+        });
+        targetState.macroRefs.push({label, value, slider});
+        host.appendChild(wrap);
       }
-      if (Array.isArray(incoming.tintColor) && incoming.tintColor.length === 3) {
-        state.tintColor = incoming.tintColor.map(v => clamp(Number(v), 0, 255));
-      }
-      if (Array.isArray(incoming.offsets) && incoming.offsets.length === 4) {
-        state.offsets = incoming.offsets.map(pair => [Number(pair[0] || 0), Number(pair[1] || 0)]);
-      }
-      if (Array.isArray(incoming.macros) && incoming.macros.length === 3) {
-        state.macros = incoming.macros.map((m, i) => ({
-          name: String(m.name || ('Macro ' + (i + 1))),
-          bindings: Object.fromEntries(Object.entries(m.bindings || {}).filter(([k]) => PARAM_SPECS[k] && k !== 'renderScale'))
-        }));
-      }
-      const ui = save.ui || {};
-      host.renderScale = clamp(Number(ui.renderScale ?? host.renderScale), 0.30, 1.00);
-      if (Array.isArray(ui.macros) && ui.macros.length === 3) {
-        host.macrosPending = ui.macros.map(v => clamp(Number(v), 0, 100));
-        host.macrosTarget = [...host.macrosPending];
-      }
-      host.speedPending = clamp(Number(ui.speedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
-      host.speedTarget = host.speedPending;
-      state.baseParams.speed = host.speedPending;
+    }
+    buildMacroSliderGroup('authoringMacroControls', uiState.runtime); // authoring uses runtime macro state
+    buildMacroSliderGroup('runtimeMacroControls', uiState.runtime);
+    buildMacroSliderGroup('minimalMacroControls', uiState.minimal);
+
+    function syncMacroLabels() {
+      const groups = [uiState.runtime, uiState.runtime, uiState.minimal];
+      groups.forEach((group, idx) => {
+        if (!group.macroRefs) return;
+        group.macroRefs.forEach((ref, i) => {
+          ref.label.textContent = state.macros[i].name;
+          ref.value.textContent = group.macroPending[i].toFixed(0);
+          ref.slider.value = group.macroPending[i];
+        });
+      });
     }
 
-    function tryLoadLocalSave() {
-      try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (!raw) return;
-        applySavegame(JSON.parse(raw));
-      } catch (e) {
-        console.warn('load local failed', e);
-      }
-    }
-    tryLoadLocalSave();
-
-    function resolveValue(name, macroApplied) {
-      const spec = PARAM_SPECS[name];
-      let value = state.baseParams[name];
-      for (let i=0; i<3; i++) {
-        const norm = clamp(macroApplied[i] / 100.0, 0, 1);
-        const bindings = state.macros[i].bindings || {};
-        if (bindings[name] === undefined) continue;
-        value += norm * bindings[name] * (spec.max - spec.min);
-      }
-      return clamp(value, spec.min, spec.max);
-    }
-
-    function resolveRuntime(macroApplied) {
-      return {
-        density: resolveValue('density', macroApplied),
-        speed: resolveValue('speed', macroApplied),
-        curl: resolveValue('curl', macroApplied),
-        curlSize: resolveValue('curlSize', macroApplied),
-        curlCount: resolveValue('curlCount', macroApplied),
-        curlDynamics: resolveValue('curlDynamics', macroApplied),
-        turbulence: resolveValue('turbulence', macroApplied),
-        edge: resolveValue('edge', macroApplied),
-        edgeUpper: resolveValue('edgeUpper', macroApplied),
-        edgeLower: resolveValue('edgeLower', macroApplied),
-        edgeUpperThin: resolveValue('edgeUpperThin', macroApplied),
-        edgeLowerThin: resolveValue('edgeLowerThin', macroApplied),
-        edgeSharpness: resolveValue('edgeSharpness', macroApplied),
-        edgeGradient: resolveValue('edgeGradient', macroApplied),
-        edgeBreakCount: resolveValue('edgeBreakCount', macroApplied),
-        edgeBreakStrength: resolveValue('edgeBreakStrength', macroApplied),
-        edgeBreakSoftness: resolveValue('edgeBreakSoftness', macroApplied),
-        softness: resolveValue('softness', macroApplied),
-        spread: resolveValue('spread', macroApplied),
-        color: resolveValue('color', macroApplied),
-        tintColor: state.tintColor,
-        offsets: state.offsets,
-      };
-    }
-
-    function applyUniforms(renderer, params, time) {
-      const gl = renderer.gl, u = renderer.u;
-      const internalW = Math.max(1, Math.round(1024 * host.renderScale));
-      const internalH = Math.max(1, Math.round(600 * host.renderScale));
-      const canvas = gl.canvas;
-      if (canvas.width !== internalW || canvas.height !== internalH) {
-        canvas.width = internalW; canvas.height = internalH;
-        gl.viewport(0, 0, internalW, internalH);
-      }
-      gl.useProgram(renderer.program);
-      gl.uniform2f(u.res, internalW, internalH);
-      gl.uniform1f(u.time, time);
-      gl.uniform1f(u.density, params.density);
-      gl.uniform1f(u.curl, params.curl);
-      gl.uniform1f(u.curlSize, params.curlSize);
-      gl.uniform1f(u.curlCount, params.curlCount);
-      gl.uniform1f(u.curlDynamics, params.curlDynamics);
-      gl.uniform1f(u.turbulence, params.turbulence);
-      gl.uniform1f(u.edge, params.edge);
-      gl.uniform1f(u.edgeUpper, params.edgeUpper);
-      gl.uniform1f(u.edgeLower, params.edgeLower);
-      gl.uniform1f(u.edgeUpperThin, params.edgeUpperThin);
-      gl.uniform1f(u.edgeLowerThin, params.edgeLowerThin);
-      gl.uniform1f(u.edgeSharpness, params.edgeSharpness);
-      gl.uniform1f(u.edgeGradient, params.edgeGradient);
-      gl.uniform1f(u.edgeBreakCount, params.edgeBreakCount);
-      gl.uniform1f(u.edgeBreakStrength, params.edgeBreakStrength);
-      gl.uniform1f(u.edgeBreakSoftness, params.edgeBreakSoftness);
-      gl.uniform1f(u.softness, params.softness);
-      gl.uniform1f(u.spread, params.spread);
-      gl.uniform1f(u.color, params.color);
-      gl.uniform3f(u.tintColor, params.tintColor[0] / 255.0, params.tintColor[1] / 255.0, params.tintColor[2] / 255.0);
-      gl.uniform2f(u.off1, params.offsets[0][0], params.offsets[0][1]);
-      gl.uniform2f(u.off2, params.offsets[1][0], params.offsets[1][1]);
-      gl.uniform2f(u.off3, params.offsets[2][0], params.offsets[2][1]);
-      gl.uniform2f(u.off4, params.offsets[3][0], params.offsets[3][1]);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-      return {w: internalW, h: internalH};
-    }
-
-    function estimateEmbeddedLoad(params) {
-      let load = 0;
-      load += host.renderScale * 34.0;
-      load += ((params.density - 0.30) / (1.80 - 0.30)) * 12.0;
-      load += ((params.curlCount - 0.0) / 6.0) * 12.0;
-      load += ((params.edgeBreakCount - 0.0) / 8.0) * 8.0;
-      load += ((params.turbulence - 0.0) / 6.60) * 8.0;
-      load += ((params.curlDynamics - 0.0) / 2.0) * 7.0;
-      load += ((params.edgeSharpness - 0.40) / (2.80 - 0.40)) * 6.0;
-      load += ((params.spread - 0.35) / (2.20 - 0.35)) * 5.0;
-      load += ((params.softness - 0.40) / (2.20 - 0.40)) * 4.0;
-      if ((1024*host.renderScale) * (600*host.renderScale) > 512*300) load += 8.0;
-      return Math.max(0, Math.min(100, Math.round(load)));
-    }
-
-    function setStatusPill(el, kind, text) {
-      el.className = 'status-pill status-' + kind;
-      el.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
-    }
-
-    const aPerf = {
-      fpsInstant: document.getElementById('aFpsInstant'),
-      fpsAvg: document.getElementById('aFpsAvg'),
-      frameMs: document.getElementById('aFrameMs'),
-      res: document.getElementById('aRes'),
-      speed: document.getElementById('aSpeed'),
-      live: document.getElementById('aLiveStatus'),
-      embedded: document.getElementById('aEmbeddedStatus'),
-      load: document.getElementById('aEmbeddedLoad'),
-    };
-    const rPerf = {
-      fpsInstant: document.getElementById('rFpsInstant'),
-      fpsAvg: document.getElementById('rFpsAvg'),
-      frameMs: document.getElementById('rFrameMs'),
-      res: document.getElementById('rRes'),
-      speed: document.getElementById('rSpeed'),
-      macros: document.getElementById('rMacros'),
-    };
-
-    function updateAmpel(els, fpsAvg, dtMs, params) {
-      const load = estimateEmbeddedLoad(params);
-      els.load.textContent = String(load);
-      if (fpsAvg >= 55 && dtMs <= 18) setStatusPill(els.live, 'green', 'green');
-      else if (fpsAvg >= 35 && dtMs <= 30) setStatusPill(els.live, 'yellow', 'yellow');
-      else setStatusPill(els.live, 'red', 'red');
-
-      if (load <= 38 && host.renderScale <= 0.5) setStatusPill(els.embedded, 'green', 'green');
-      else if (load <= 62 && host.renderScale <= 0.625) setStatusPill(els.embedded, 'yellow', 'yellow');
-      else setStatusPill(els.embedded, 'red', 'red');
-    }
-
-    // Tabs
-    const tabAuthoring = document.getElementById('tabAuthoring');
-    const tabRuntime = document.getElementById('tabRuntime');
-    const authoringPanel = document.getElementById('authoringPanel');
-    const runtimePanel = document.getElementById('runtimePanel');
-    const authoringStage = document.getElementById('authoringStage');
-    const runtimeStage = document.getElementById('runtimeStage');
-    const authoringPerfPanel = document.getElementById('authoringPerfPanel');
-    const runtimePerfPanel = document.getElementById('runtimePerfPanel');
-
-    function switchTab(which) {
-      const authoringOn = which === 'authoring';
-      tabAuthoring.classList.toggle('active', authoringOn);
-      tabRuntime.classList.toggle('active', !authoringOn);
-      authoringPanel.classList.toggle('hidden', !authoringOn);
-      runtimePanel.classList.toggle('hidden', authoringOn);
-      authoringStage.classList.toggle('hidden', !authoringOn);
-      runtimeStage.classList.toggle('hidden', authoringOn);
-      authoringPerfPanel.classList.toggle('hidden', !authoringOn);
-      runtimePerfPanel.classList.toggle('hidden', authoringOn);
-    }
-    tabAuthoring.addEventListener('click', () => switchTab('authoring'));
-    tabRuntime.addEventListener('click', () => switchTab('runtime'));
-
-    // Controls
+    // base controls
     const authoringControls = document.getElementById('authoringControls');
-    const authoringMacroControls = document.getElementById('authoringMacroControls');
-    const runtimeMacroControls = document.getElementById('runtimeMacroControls');
-    const runtimeSpeedControl = document.getElementById('runtimeSpeedControl');
-    const authoringMacroHint = document.getElementById('authoringMacroHint');
-    const runtimeHint = document.getElementById('runtimeHint');
-    const resolvedText = document.getElementById('resolvedText');
     const controlRefs = {};
-
-    function createSliderControl(parent, labelText, tip, min, max, step, initial, onInput, onCommit) {
+    function createControl(name) {
+      const spec = PARAM_SPECS[name];
       const wrap = document.createElement('div');
       wrap.className = 'control';
       wrap.innerHTML = `
         <div class="row">
-          <div class="label"><span>${labelText}</span><span class="info" data-tip="${tip}">i</span></div>
-          <span class="value"></span>
+          <div class="label"><span>${displayName(name)}</span><span class="info" data-tip="${spec.tip}">i</span></div>
+          <span class="value">${fmt(name, name==='renderScale' ? uiState.authoring.renderScale : state.baseParams[name])}</span>
         </div>
-        <input type="range" min="${min}" max="${max}" step="${step}">
+        <input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="${name==='renderScale' ? uiState.authoring.renderScale : state.baseParams[name]}">
       `;
-      const label = wrap.querySelector('.value');
+      const valueEl = wrap.querySelector('.value');
       const slider = wrap.querySelector('input');
-      slider.value = initial;
-      label.textContent = (step >= 1) ? Number(initial).toFixed(0) : Number(initial).toFixed(2);
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
-        onInput(v);
-        label.textContent = (step >= 1) ? Number(v).toFixed(0) : Number(v).toFixed(2);
+        if (name === 'renderScale') {
+          uiState.authoring.renderScale = v;
+        } else if (name === 'speed') {
+          uiState.authoring.speedPending = v;
+          state.baseParams.speed = v;
+          uiState.authoring.speedTarget = v;
+        } else {
+          state.baseParams[name] = clamp(v, spec.min, spec.max);
+        }
+        valueEl.textContent = fmt(name, v);
+        markDirty();
       });
-      if (onCommit) {
-        const commit = () => onCommit(parseFloat(slider.value));
-        slider.addEventListener('change', commit);
-        slider.addEventListener('pointerup', commit);
-        slider.addEventListener('touchend', commit);
-      }
-      parent.appendChild(wrap);
-      return {wrap, slider, label};
+      controlRefs[name] = {valueEl, slider};
+      authoringControls.appendChild(wrap);
     }
+    Object.keys(PARAM_SPECS).forEach(createControl);
 
-    function buildAuthoringControls() {
-      authoringControls.innerHTML = '';
-      for (const [name, spec] of Object.entries(PARAM_SPECS)) {
-        if (name === 'renderScale') continue;
-        controlRefs[name] = createSliderControl(
-          authoringControls, name, spec.tip, spec.min, spec.max, spec.step, state.baseParams[name],
-          (v) => {
-            if (name === 'speed') {
-              host.speedPending = v;
-            } else {
-              state.baseParams[name] = clamp(v, spec.min, spec.max);
-            }
-            markDirty();
-          },
-          name === 'speed' ? (v) => {
-            state.baseParams.speed = clamp(v, spec.min, spec.max);
-            host.speedTarget = state.baseParams.speed;
-            markDirty();
-          } : null
-        );
-      }
-      controlRefs.renderScale = createSliderControl(
-        authoringControls, 'renderScale', PARAM_SPECS.renderScale.tip, PARAM_SPECS.renderScale.min, PARAM_SPECS.renderScale.max, PARAM_SPECS.renderScale.step, host.renderScale,
-        (v) => { host.renderScale = clamp(v, 0.30, 1.00); markDirty(); },
-        null
-      );
-    }
-
-    function buildMacroControls(container, includeSpeedSection) {
-      container.innerHTML = '';
-      state.macros.forEach((macro, i) => {
-        createSliderControl(
-          container, macro.name, 'Runtime-Makro 0–100. Dieselbe Host-Mapping-Logik wie in Flutter.', 0, 100, 1, host.macrosPending[i],
-          (v) => {
-            host.macrosPending[i] = clamp(v, 0, 100);
-            host.macrosTarget[i] = host.macrosPending[i];
-            markDirty();
-          },
-          null
-        );
+    function syncAuthoringControls() {
+      Object.entries(controlRefs).forEach(([name, ref]) => {
+        const v = name==='renderScale' ? uiState.authoring.renderScale : state.baseParams[name];
+        ref.slider.value = v;
+        ref.valueEl.textContent = fmt(name, v);
+        ref.slider.parentElement.querySelector('.label span').textContent = displayName(name);
       });
-      if (includeSpeedSection) {
-        runtimeSpeedControl.innerHTML = '';
-        createSliderControl(
-          runtimeSpeedControl, 'speed', 'Normaler Host-Slider. Makros dürfen speed zusätzlich modulieren, aber der Slider selbst sitzt getrennt von den Makros.', PARAM_SPECS.speed.min, PARAM_SPECS.speed.max, PARAM_SPECS.speed.step, host.speedPending,
-          (v) => { host.speedPending = v; markDirty(); },
-          (v) => { state.baseParams.speed = clamp(v, PARAM_SPECS.speed.min, PARAM_SPECS.speed.max); host.speedTarget = state.baseParams.speed; markDirty(); }
-        );
-      }
+      document.getElementById('authoringMacroHint').textContent =
+        `runtime macros use the same host mapping as Flutter · speed pending ${uiState.authoring.speedPending.toFixed(2)}`;
     }
 
-    function updateControlLabels() {
-      for (const [name, ref] of Object.entries(controlRefs)) {
-        const value = (name === 'speed') ? host.speedPending : (name === 'renderScale' ? host.renderScale : state.baseParams[name]);
-        ref.slider.value = value;
-        ref.label.textContent = fmt(name, value);
-      }
-    }
-
-    buildAuthoringControls();
-    buildMacroControls(authoringMacroControls, false);
-    buildMacroControls(runtimeMacroControls, true);
-
-    // color block
-    const colorBlock = document.getElementById('colorControlBlock');
-    colorBlock.innerHTML = `
-      <h2>Color target</h2>
-      <div class="meta">Der Slider <strong>color</strong> mischt in diese Ziel-Farbe hinein. Du kannst die Ziel-Farbe über Farbwähler oder exakte RGB-Werte setzen.</div>
-      <div class="control">
+    // runtime/minimal speed controls
+    function buildSpeedControl(containerId, targetState, hintId) {
+      const host = document.getElementById(containerId);
+      host.innerHTML = '';
+      const spec = PARAM_SPECS.speed;
+      const wrap = document.createElement('div');
+      wrap.className = 'control';
+      wrap.innerHTML = `
         <div class="row">
-          <div class="label"><span>Target color</span><span class="info" data-tip="Wird vom Slider color verwendet. Die Werte werden in die smoke_config.json geschrieben.">i</span></div>
-          <span class="value" id="colorHexValue">${hexFromRgb(state.tintColor)}</span>
+          <div class="label"><span>speed</span><span class="info" data-tip="${spec.tip}">i</span></div>
+          <span class="value">${targetState.speedPending.toFixed(2)}</span>
         </div>
-        <input id="targetColorPicker" type="color" value="${hexFromRgb(state.tintColor)}" />
-        <div class="rgb-grid">
-          <input id="rgbR" type="number" min="0" max="255" step="1" value="${state.tintColor[0]}" />
-          <input id="rgbG" type="number" min="0" max="255" step="1" value="${state.tintColor[1]}" />
-          <input id="rgbB" type="number" min="0" max="255" step="1" value="${state.tintColor[2]}" />
+        <input type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" value="${targetState.speedPending}">
+      `;
+      const valueEl = wrap.querySelector('.value');
+      const slider = wrap.querySelector('input');
+      slider.addEventListener('input', () => {
+        targetState.speedPending = parseFloat(slider.value);
+        targetState.speedTarget = targetState.speedPending;
+        valueEl.textContent = targetState.speedPending.toFixed(2);
+        markDirty();
+      });
+      targetState.speedRef = {valueEl, slider, hintId};
+      host.appendChild(wrap);
+    }
+    buildSpeedControl('runtimeSpeedControl', uiState.runtime, 'runtimeHint');
+    buildSpeedControl('minimalSpeedControl', uiState.minimal, 'minimalHint');
+
+    function syncSpeedControls() {
+      [
+        [uiState.runtime, 'runtimeHint'],
+        [uiState.minimal, 'minimalHint'],
+      ].forEach(([s, hid]) => {
+        if (s.speedRef) {
+          s.speedRef.valueEl.textContent = s.speedPending.toFixed(2);
+          s.speedRef.slider.value = s.speedPending;
+          document.getElementById(hid).textContent = `speed pending ${s.speedPending.toFixed(2)} · applied ${s.speedApplied.toFixed(2)}`;
+        }
+      });
+    }
+
+    // color controls for minimal baked RGB
+    const minColorHost = document.getElementById('minimalColorControls');
+    function buildMinimalColorControls() {
+      minColorHost.innerHTML = `
+        <div class="control">
+          <div class="row">
+            <div class="label"><span>Minimal tint RGB</span><span class="info" data-tip="Wird in die festen roten Farbkonstanten der Minimal-.frag eingebacken. Keine neuen Uniforms.">i</span></div>
+            <span class="value" id="minColorHex">#${uiState.minimal.tintRgb.map(v=>v.toString(16).padStart(2,'0')).join('')}</span>
+          </div>
+          <div class="color-grid">
+            <input id="minColorPicker" type="color" value="#${uiState.minimal.tintRgb.map(v=>v.toString(16).padStart(2,'0')).join('')}">
+            <input id="minR" type="number" min="0" max="255" value="${uiState.minimal.tintRgb[0]}">
+            <input id="minG" type="number" min="0" max="255" value="${uiState.minimal.tintRgb[1]}">
+            <input id="minB" type="number" min="0" max="255" value="${uiState.minimal.tintRgb[2]}">
+          </div>
         </div>
-      </div>
-    `;
-    const colorPicker = document.getElementById('targetColorPicker');
-    const colorHexValue = document.getElementById('colorHexValue');
-    const rgbR = document.getElementById('rgbR');
-    const rgbG = document.getElementById('rgbG');
-    const rgbB = document.getElementById('rgbB');
-
-    function syncTintUi() {
-      const hex = hexFromRgb(state.tintColor);
-      colorPicker.value = hex;
-      colorHexValue.textContent = hex;
-      rgbR.value = state.tintColor[0];
-      rgbG.value = state.tintColor[1];
-      rgbB.value = state.tintColor[2];
+      `;
+      const picker = document.getElementById('minColorPicker');
+      const r = document.getElementById('minR');
+      const g = document.getElementById('minG');
+      const b = document.getElementById('minB');
+      const hex = document.getElementById('minColorHex');
+      function apply(rgb) {
+        uiState.minimal.tintRgb = rgb.map(v => clamp(Number(v), 0, 255));
+        const hx = '#' + uiState.minimal.tintRgb.map(v=>Number(v).toString(16).padStart(2,'0')).join('');
+        picker.value = hx;
+        r.value = uiState.minimal.tintRgb[0];
+        g.value = uiState.minimal.tintRgb[1];
+        b.value = uiState.minimal.tintRgb[2];
+        hex.textContent = hx;
+        rebuildMinimalRenderer();
+        markDirty();
+      }
+      picker.addEventListener('input', () => {
+        const v = picker.value;
+        apply([parseInt(v.slice(1,3),16), parseInt(v.slice(3,5),16), parseInt(v.slice(5,7),16)]);
+      });
+      [r,g,b].forEach(() => {});
+      r.addEventListener('input', () => apply([r.value, g.value, b.value]));
+      g.addEventListener('input', () => apply([r.value, g.value, b.value]));
+      b.addEventListener('input', () => apply([r.value, g.value, b.value]));
     }
-    syncTintUi();
+    buildMinimalColorControls();
 
-    colorPicker.addEventListener('input', () => {
-      state.tintColor = rgbFromHex(colorPicker.value);
-      syncTintUi();
-      markDirty();
-    });
-    function numberToTint() {
-      state.tintColor = [
-        clamp(parseInt(rgbR.value || '0', 10), 0, 255),
-        clamp(parseInt(rgbG.value || '0', 10), 0, 255),
-        clamp(parseInt(rgbB.value || '0', 10), 0, 255),
-      ];
-      syncTintUi();
-      markDirty();
-    }
-    rgbR.addEventListener('input', numberToTint);
-    rgbG.addEventListener('input', numberToTint);
-    rgbB.addEventListener('input', numberToTint);
-
-    // Macro editor
+    // macro editor
     const chipList = document.getElementById('chipList');
     const macroZone = document.getElementById('macroZone');
-
     function renderChips() {
       chipList.innerHTML = '';
-      for (const name of Object.keys(PARAM_SPECS)) {
-        if (name === 'renderScale') continue;
+      Object.keys(PARAM_SPECS).forEach(name => {
+        if (name === 'renderScale') return;
         const chip = document.createElement('div');
         chip.className = 'chip';
         chip.draggable = true;
-        chip.textContent = name;
-        chip.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', name));
+        chip.textContent = displayName(name);
+        chip.dataset.param = name;
+        chip.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', name));
         chipList.appendChild(chip);
-      }
+      });
     }
-
     function renderMacroZone() {
       macroZone.innerHTML = '';
       state.macros.forEach((macro, index) => {
         const card = document.createElement('div');
         card.className = 'macro';
-        const bindings = macro.bindings || {};
+        const binds = macro.bindings || {};
         card.innerHTML = `
-          <div class="macro-header"><strong>${macro.name}</strong><span class="tiny">${Object.keys(bindings).length} bindings</span></div>
-          <div class="macro-drop" data-index="${index}"></div>
+          <div class="macro-header"><strong>${macro.name}</strong><span class="tiny">${Object.keys(binds).length} bindings</span></div>
+          <div class="macro-drop"></div>
         `;
         const drop = card.querySelector('.macro-drop');
-        drop.addEventListener('dragover', (e) => {
-          e.preventDefault(); drop.classList.add('dragover');
-        });
+        drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
         drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
-        drop.addEventListener('drop', (e) => {
+        drop.addEventListener('drop', e => {
           e.preventDefault(); drop.classList.remove('dragover');
           const name = e.dataTransfer.getData('text/plain');
           if (!name) return;
@@ -804,61 +776,59 @@
           renderMacroZone();
           markDirty();
         });
-
-        if (!Object.keys(bindings).length) {
+        if (!Object.keys(binds).length) {
           drop.innerHTML = '<span class="tiny">Drop parameter chips here</span>';
         } else {
-          for (const [name, influence] of Object.entries(bindings)) {
-            const binding = document.createElement('div');
-            binding.className = 'binding';
-            binding.innerHTML = `
-              <span>${name}</span>
+          Object.entries(binds).forEach(([name, influence]) => {
+            const b = document.createElement('div');
+            b.className = 'binding';
+            b.innerHTML = `
+              <span>${displayName(name)}</span>
               <input type="range" min="-1" max="1" step="0.01" value="${influence}">
               <span class="mini">${Number(influence).toFixed(2)}</span>
               <button title="remove">×</button>
             `;
-            const slider = binding.querySelector('input');
-            const mini = binding.querySelector('.mini');
+            const slider = b.querySelector('input');
+            const mini = b.querySelector('.mini');
             slider.addEventListener('input', () => {
               macro.bindings[name] = parseFloat(slider.value);
               mini.textContent = Number(macro.bindings[name]).toFixed(2);
               markDirty();
             });
-            binding.querySelector('button').addEventListener('click', () => {
+            b.querySelector('button').addEventListener('click', () => {
               delete macro.bindings[name];
               renderMacroZone();
               markDirty();
             });
-            drop.appendChild(binding);
-          }
+            drop.appendChild(b);
+          });
         }
         macroZone.appendChild(card);
       });
+      syncMacroLabels();
     }
     renderChips();
     renderMacroZone();
 
-    // Offsets / crosses
-    const authoringOverlay = document.getElementById('authoringOverlay');
+    // Offsets
+    const overlay = document.getElementById('authoringOverlay');
     const crossBase = [
       { x: 0.17, y: 0.56, label: 'D1' },
       { x: 0.28, y: 0.48, label: 'D2' },
       { x: 0.38, y: 0.42, label: 'D3' },
       { x: 0.48, y: 0.36, label: 'D4' },
     ];
-
     function layoutCrosses() {
-      const rect = authoringOverlay.getBoundingClientRect();
-      Array.from(authoringOverlay.children).forEach((el, i) => {
+      const rect = overlay.getBoundingClientRect();
+      Array.from(overlay.children).forEach((el, i) => {
         const px = (crossBase[i].x + state.offsets[i][0] / 1.6) * rect.width;
         const py = (crossBase[i].y - state.offsets[i][1] / 0.95) * rect.height;
         el.style.left = px + 'px';
         el.style.top = py + 'px';
       });
     }
-
     function createCrosses() {
-      authoringOverlay.innerHTML = '';
+      overlay.innerHTML = '';
       state.offsets.forEach((pair, i) => {
         const el = document.createElement('div');
         el.className = 'cross';
@@ -866,11 +836,10 @@
         label.className = 'cross-label';
         label.textContent = crossBase[i].label;
         el.appendChild(label);
-        authoringOverlay.appendChild(el);
-
+        overlay.appendChild(el);
         let dragging = false;
         function move(clientX, clientY) {
-          const rect = authoringOverlay.getBoundingClientRect();
+          const rect = overlay.getBoundingClientRect();
           const nx = (clientX - rect.left) / rect.width;
           const ny = (clientY - rect.top) / rect.height;
           pair[0] = clamp((nx - crossBase[i].x) * 1.6, -0.8, 0.8);
@@ -878,33 +847,25 @@
           layoutCrosses();
           markDirty();
         }
-        el.addEventListener('pointerdown', (e) => {
+        el.addEventListener('pointerdown', e => {
           dragging = true;
           el.setPointerCapture(e.pointerId);
           e.preventDefault();
         });
-        el.addEventListener('pointermove', (e) => {
-          if (!dragging) return;
-          move(e.clientX, e.clientY);
-        });
+        el.addEventListener('pointermove', e => { if (dragging) move(e.clientX, e.clientY); });
         el.addEventListener('pointerup', () => dragging = false);
-        el.addEventListener('dblclick', () => {
-          pair[0] = 0; pair[1] = 0;
-          layoutCrosses();
-          markDirty();
-        });
+        el.addEventListener('dblclick', () => { pair[0] = 0; pair[1] = 0; layoutCrosses(); markDirty(); });
       });
       layoutCrosses();
     }
     createCrosses();
-
     document.getElementById('resetOffsets').addEventListener('click', () => {
       state.offsets = [[0,0],[0,0],[0,0],[0,0]];
       createCrosses();
       markDirty();
     });
 
-    // Save/Load/Export
+    // Save/load/export
     function downloadText(name, text) {
       const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -913,14 +874,23 @@
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     }
-
-    function buildConfigOnly() {
-      return JSON.stringify(state, null, 2);
+    function currentMinimalConfig() {
+      const out = structuredClone(DEFAULT_MIN_CONFIG);
+      out.baseParams = {};
+      Object.keys(DEFAULT_MIN_CONFIG.baseParams).forEach(k => out.baseParams[k] = state.baseParams[k]);
+      out.offsets = structuredClone(state.offsets);
+      out.macros = state.macros.map(m => {
+        const binds = {};
+        Object.entries(m.bindings || {}).forEach(([k,v]) => {
+          if (k in DEFAULT_MIN_CONFIG.baseParams) binds[k] = v;
+        });
+        return {name:m.name, bindings:binds};
+      });
+      return out;
     }
     function buildHostNote() {
-      return `Nutze im Flutter-Projekt:\n- shaders/steam_safe.frag\n- assets/smoke_config.json\n- lib/main.dart\n\nAktuelle Config:\n\n` + buildConfigOnly();
+      return `Nutze im Flutter-Projekt diese Dateien:\n- lib/main.dart\n- lib/main_minimal.dart\n- shaders/steam_safe.frag\n- shaders/steam_target_safe.frag\n- assets/smoke_config.json\n- assets/smoke_config_minimal.json\n\nAktuelle normale Config:\n\n${JSON.stringify(state, null, 2)}`;
     }
-
     document.getElementById('saveLocal').addEventListener('click', () => {
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshotSavegame()));
@@ -937,131 +907,259 @@
           return;
         }
         applySavegame(JSON.parse(raw));
-        updateControlLabels();
-        buildMacroControls(authoringMacroControls, false);
-        buildMacroControls(runtimeMacroControls, true);
-        renderMacroZone();
-        createCrosses();
-        syncTintUi();
+        syncAuthoringControls(); renderMacroZone(); syncMacroLabels(); syncSpeedControls(); buildMinimalColorControls(); createCrosses();
         authoringLog.textContent = 'Lokaler Save geladen.';
       } catch (e) {
         authoringLog.textContent = 'Lokaler Load fehlgeschlagen: ' + e.message;
       }
     });
-    document.getElementById('downloadSavegame').addEventListener('click', () => {
-      downloadText('smoke_savegame.json', JSON.stringify(snapshotSavegame(), null, 2));
-    });
-    document.getElementById('downloadConfig').addEventListener('click', () => downloadText('smoke_config.json', buildConfigOnly()));
-    document.getElementById('copyConfig').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(buildConfigOnly()); } catch (e) { console.error(e); }
-    });
-    document.getElementById('downloadFrag').addEventListener('click', () => downloadText('steam_safe.frag', FLUTTER_FRAG));
-    document.getElementById('downloadHostNote').addEventListener('click', () => downloadText('flutter_host_note.txt', buildHostNote()));
-    document.getElementById('importSavegameBtn').addEventListener('click', () => document.getElementById('importSavegameInput').click());
-    document.getElementById('importSavegameInput').addEventListener('change', async (e) => {
+    document.getElementById('downloadSavegame').addEventListener('click', () => downloadText('smoke_savegame.json', JSON.stringify(snapshotSavegame(), null, 2)));
+    document.getElementById('importSavegameBtn').addEventListener('click', ()=>document.getElementById('importSavegameInput').click());
+    document.getElementById('importSavegameInput').addEventListener('change', async e => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       try {
-        const text = await file.text();
-        applySavegame(JSON.parse(text));
-        updateControlLabels();
-        buildMacroControls(authoringMacroControls, false);
-        buildMacroControls(runtimeMacroControls, true);
-        renderMacroZone();
-        createCrosses();
-        syncTintUi();
-        markDirty();
+        applySavegame(JSON.parse(await file.text()));
+        syncAuthoringControls(); renderMacroZone(); syncMacroLabels(); syncSpeedControls(); buildMinimalColorControls(); createCrosses();
         authoringLog.textContent = 'Savegame geladen.';
-      } catch (err) {
+      } catch(err) {
         authoringLog.textContent = 'Savegame konnte nicht geladen werden: ' + err.message;
       }
       e.target.value = '';
     });
+    document.getElementById('downloadConfig').addEventListener('click', ()=>downloadText('smoke_config.json', JSON.stringify(state, null, 2)));
+    document.getElementById('copyConfig').addEventListener('click', async ()=>{ try { await navigator.clipboard.writeText(JSON.stringify(state, null, 2)); } catch(e) {} });
+    document.getElementById('downloadFrag').addEventListener('click', ()=>downloadText('steam_safe.frag', FULL_SHADER));
+    document.getElementById('downloadHostNote').addEventListener('click', ()=>downloadText('flutter_host_note.txt', buildHostNote()));
+    document.getElementById('downloadMinimalConfig').addEventListener('click', ()=>downloadText('smoke_config_minimal.json', JSON.stringify(currentMinimalConfig(), null, 2)));
+    document.getElementById('downloadMinimalFrag').addEventListener('click', ()=>downloadText('steam_target_safe.frag', buildTargetSafeFragVariant(uiState.minimal.tintRgb)));
+    document.getElementById('downloadMinimalMain').addEventListener('click', ()=>downloadText('main_minimal.dart', MAIN_MINIMAL_DART));
 
-    // Overlay image
-    const runtimeOverlayImage = document.getElementById('runtimeOverlayImage');
-    document.getElementById('uploadOverlayBtn').addEventListener('click', () => {
-      document.getElementById('overlayInput').click();
-    });
-    document.getElementById('clearOverlayBtn').addEventListener('click', () => {
-      if (host.overlayUrl) URL.revokeObjectURL(host.overlayUrl);
-      host.overlayUrl = null;
-      runtimeOverlayImage.src = '';
-      runtimeOverlayImage.style.display = 'none';
-    });
-    document.getElementById('overlayInput').addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      if (host.overlayUrl) URL.revokeObjectURL(host.overlayUrl);
-      host.overlayUrl = URL.createObjectURL(file);
-      runtimeOverlayImage.src = host.overlayUrl;
-      runtimeOverlayImage.style.display = 'block';
-      e.target.value = '';
-    });
+    // overlays
+    function bindOverlay(uploadBtnId, inputId, clearBtnId, imgId, stateObj) {
+      const input = document.getElementById(inputId);
+      const img = document.getElementById(imgId);
+      document.getElementById(uploadBtnId).addEventListener('click', ()=>input.click());
+      document.getElementById(clearBtnId).addEventListener('click', ()=>{
+        if (stateObj.overlayUrl) URL.revokeObjectURL(stateObj.overlayUrl);
+        stateObj.overlayUrl = null;
+        img.src = '';
+        img.style.display = 'none';
+      });
+      input.addEventListener('change', e=>{
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (stateObj.overlayUrl) URL.revokeObjectURL(stateObj.overlayUrl);
+        stateObj.overlayUrl = URL.createObjectURL(file);
+        img.src = stateObj.overlayUrl;
+        img.style.display = 'block';
+        e.target.value = '';
+      });
+    }
+    bindOverlay('uploadOverlayBtn','overlayInput','clearOverlayBtn','runtimeOverlayImage', uiState.runtime);
+    bindOverlay('uploadMinimalOverlayBtn','minimalOverlayInput','clearMinimalOverlayBtn','minimalOverlayImage', uiState.minimal);
 
-    // animation
+    function resolveRuntime(baseParams, offsets, macros, appliedSpeed) {
+      const out = Object.assign({}, baseParams);
+      for (let i=0;i<3;i++) {
+        const macroNorm = clamp(macros[i] / 100.0, 0, 1);
+        const bindings = state.macros[i].bindings || {};
+        for (const [name, influence] of Object.entries(bindings)) {
+          const spec = PARAM_SPECS[name];
+          if (!spec) continue;
+          const base = baseParams[name];
+          out[name] = clamp(base + macroNorm * influence * (spec.max - spec.min), spec.min, spec.max);
+        }
+      }
+      out.speed = appliedSpeed;
+      out.offsets = offsets;
+      return out;
+    }
+
+    function applyUniforms(renderer, params, time, renderScale, isMinimal=false) {
+      const gl = renderer.gl;
+      const u = renderer.uniforms;
+      const w = Math.max(1, Math.round(1024 * renderScale));
+      const h = Math.max(1, Math.round(600 * renderScale));
+      if (gl.canvas.width !== w || gl.canvas.height !== h) {
+        gl.canvas.width = w;
+        gl.canvas.height = h;
+        gl.viewport(0,0,w,h);
+      }
+      gl.useProgram(renderer.program);
+      gl.uniform2f(u.res, w, h);
+      gl.uniform1f(u.time, time);
+      gl.uniform1f(u.density, params.density);
+      gl.uniform1f(u.curl, params.curl);
+      gl.uniform1f(u.turbulence, params.turbulence);
+      gl.uniform1f(u.edge, params.edge);
+      gl.uniform1f(u.softness, params.softness);
+      gl.uniform1f(u.spread, params.spread);
+      gl.uniform1f(u.redness, params.redness);
+      gl.uniform1f(u.curlSize, params.curlSize);
+      gl.uniform1f(u.curlCount, params.curlCount);
+      gl.uniform1f(u.curlDynamics, params.curlDynamics);
+      gl.uniform1f(u.edgeUpper, params.edgeUpper);
+      gl.uniform1f(u.edgeLower, params.edgeLower);
+      gl.uniform1f(u.edgeSharpness, params.edgeSharpness);
+      gl.uniform1f(u.edgeGradient, params.edgeGradient);
+      gl.uniform1f(u.edgeBreakCount, params.edgeBreakCount);
+      gl.uniform1f(u.edgeBreakStrength, params.edgeBreakStrength);
+      gl.uniform1f(u.edgeBreakSoftness, params.edgeBreakSoftness);
+      if (!isMinimal) {
+        if (u.edgeUpperThin) gl.uniform1f(u.edgeUpperThin, params.edgeUpperThin);
+        if (u.edgeLowerThin) gl.uniform1f(u.edgeLowerThin, params.edgeLowerThin);
+      }
+      gl.uniform2f(u.off1, params.offsets[0][0], params.offsets[0][1]);
+      gl.uniform2f(u.off2, params.offsets[1][0], params.offsets[1][1]);
+      gl.uniform2f(u.off3, params.offsets[2][0], params.offsets[2][1]);
+      gl.uniform2f(u.off4, params.offsets[3][0], params.offsets[3][1]);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      return {w,h};
+    }
+
+    function estimateEmbeddedLoad(params, renderScale) {
+      let load = 0;
+      load += renderScale * 34.0;
+      load += ((params.density - 0.30) / (1.80 - 0.30)) * 12.0;
+      load += ((params.curlCount - 0.0) / 6.0) * 12.0;
+      load += ((params.edgeBreakCount - 0.0) / 8.0) * 8.0;
+      load += ((params.turbulence - 0.0) / (6.60 - 0.0)) * 8.0;
+      load += ((params.curlDynamics - 0.0) / 2.0) * 7.0;
+      load += ((params.edgeSharpness - 0.40) / (2.80 - 0.40)) * 6.0;
+      load += ((params.spread - 0.35) / (2.20 - 0.35)) * 5.0;
+      load += ((params.softness - 0.40) / (2.20 - 0.40)) * 4.0;
+      if ((1024*renderScale)*(600*renderScale) > 512*300) load += 8.0;
+      return Math.max(0, Math.min(100, Math.round(load)));
+    }
+    function setStatusPill(el, kind, text) {
+      el.className = 'status-pill status-' + kind;
+      el.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
+    }
+    const authoringPerfEls = {
+      fpsInstant: document.getElementById('aFpsInstant'),
+      fpsAvg: document.getElementById('aFpsAvg'),
+      frameMs: document.getElementById('aFrameMs'),
+      res: document.getElementById('aRes'),
+      speed: document.getElementById('aSpeed'),
+      live: document.getElementById('aLiveStatus'),
+      embedded: document.getElementById('aEmbeddedStatus'),
+      load: document.getElementById('aEmbeddedLoad'),
+    };
+    const runtimePerfEls = {
+      fpsInstant: document.getElementById('rFpsInstant'),
+      fpsAvg: document.getElementById('rFpsAvg'),
+      frameMs: document.getElementById('rFrameMs'),
+      res: document.getElementById('rRes'),
+      speed: document.getElementById('rSpeed'),
+      macros: document.getElementById('rMacros'),
+    };
+    const minimalPerfEls = {
+      fpsInstant: document.getElementById('mFpsInstant'),
+      fpsAvg: document.getElementById('mFpsAvg'),
+      frameMs: document.getElementById('mFrameMs'),
+      res: document.getElementById('mRes'),
+      speed: document.getElementById('mSpeed'),
+      macros: document.getElementById('mMacros'),
+    };
+    function updateAmpel(els, fpsAvg, dtMs, params, renderScale) {
+      const load = estimateEmbeddedLoad(params, renderScale);
+      els.load.textContent = String(load);
+      if (fpsAvg >= 55 && dtMs <= 18) setStatusPill(els.live, 'green', 'green');
+      else if (fpsAvg >= 35 && dtMs <= 30) setStatusPill(els.live, 'yellow', 'yellow');
+      else setStatusPill(els.live, 'red', 'red');
+      if (load <= 38 && renderScale <= 0.5) setStatusPill(els.embedded, 'green', 'green');
+      else if (load <= 62 && renderScale <= 0.625) setStatusPill(els.embedded, 'yellow', 'yellow');
+      else setStatusPill(els.embedded, 'red', 'red');
+    }
+
+    syncAuthoringControls();
+    syncMacroLabels();
+    syncSpeedControls();
+
     let last = performance.now();
-    let aAvg = 0, rAvg = 0;
-    let aTime = 0, rTime = 0;
-
+    let aAvg = 0, rAvg = 0, mAvg = 0;
+    let aTime = 0, rTime = 0, mTime = 0;
     function tick(now) {
       const dtMs = Math.max(0.0001, now - last);
       const dt = dtMs * 0.001;
       last = now;
 
-      host.speedApplied += (host.speedTarget - host.speedApplied) * Math.min(1.0, dt * 6.0);
-      host.curlCountApplied += (resolveValue('curlCount', host.macrosApplied) - host.curlCountApplied) * Math.min(1.0, dt * 7.0);
-      host.curlDynamicsApplied += (resolveValue('curlDynamics', host.macrosApplied) - host.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
-      for (let i=0;i<3;i++) {
-        host.macrosApplied[i] += (host.macrosTarget[i] - host.macrosApplied[i]) * Math.min(1.0, dt * 7.0);
-      }
+      // authoring smoothing
+      uiState.authoring.speedApplied += (uiState.authoring.speedTarget - uiState.authoring.speedApplied) * Math.min(1.0, dt * 6.0);
+      uiState.authoring.curlCountApplied += (state.baseParams.curlCount - uiState.authoring.curlCountApplied) * Math.min(1.0, dt * 7.0);
+      uiState.authoring.curlDynamicsApplied += (state.baseParams.curlDynamics - uiState.authoring.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
 
-      const speedTargetResolved = resolveValue('speed', host.macrosApplied);
-      host.speedApplied += (speedTargetResolved - host.speedApplied) * Math.min(1.0, dt * 4.0);
+      // runtime smoothing
+      uiState.runtime.speedApplied += (uiState.runtime.speedTarget - uiState.runtime.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i=0;i<3;i++) uiState.runtime.macroApplied[i] += (uiState.runtime.macroTarget[i] - uiState.runtime.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      const runtimeResolved = resolveRuntime(state.baseParams, state.offsets, uiState.runtime.macroApplied, uiState.runtime.speedApplied);
+      uiState.runtime.curlCountApplied += (runtimeResolved.curlCount - uiState.runtime.curlCountApplied) * Math.min(1.0, dt * 7.0);
+      uiState.runtime.curlDynamicsApplied += (runtimeResolved.curlDynamics - uiState.runtime.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
+      runtimeResolved.curlCount = uiState.runtime.curlCountApplied;
+      runtimeResolved.curlDynamics = uiState.runtime.curlDynamicsApplied;
 
-      aTime += dt * host.speedApplied;
-      rTime += dt * host.speedApplied;
+      // minimal smoothing
+      uiState.minimal.speedApplied += (uiState.minimal.speedTarget - uiState.minimal.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i=0;i<3;i++) uiState.minimal.macroApplied[i] += (uiState.minimal.macroTarget[i] - uiState.minimal.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      const minimalBase = {};
+      Object.keys(DEFAULT_MIN_CONFIG.baseParams).forEach(k => minimalBase[k] = state.baseParams[k]);
+      const minimalResolved = resolveRuntime(minimalBase, state.offsets, uiState.minimal.macroApplied, uiState.minimal.speedApplied);
 
-      const authoringParams = resolveRuntime([0,0,0]);
-      authoringParams.curlCount = host.curlCountApplied;
-      authoringParams.curlDynamics = host.curlDynamicsApplied;
+      aTime += dt * uiState.authoring.speedApplied;
+      rTime += dt * uiState.runtime.speedApplied;
+      mTime += dt * uiState.minimal.speedApplied;
 
-      const runtimeParams = resolveRuntime(host.macrosApplied);
-      runtimeParams.curlCount = host.curlCountApplied;
-      runtimeParams.curlDynamics = host.curlDynamicsApplied;
+      const authoringParams = Object.assign({}, state.baseParams, {
+        speed: uiState.authoring.speedApplied,
+        curlCount: uiState.authoring.curlCountApplied,
+        curlDynamics: uiState.authoring.curlDynamicsApplied,
+        offsets: state.offsets
+      });
 
-      const aSize = applyUniforms(authoring, authoringParams, aTime);
-      const rSize = applyUniforms(runtimeR, runtimeParams, rTime);
+      const aSize = applyUniforms(authoringRenderer, authoringParams, aTime, uiState.authoring.renderScale, false);
+      const rSize = applyUniforms(runtimeRenderer, runtimeResolved, rTime, uiState.runtime.renderScale, false);
+      const mSize = applyUniforms(minimalRenderer, minimalResolved, mTime, uiState.minimal.renderScale, true);
 
       const fpsInstant = 1000.0 / dtMs;
       aAvg = aAvg === 0 ? fpsInstant : aAvg * 0.92 + fpsInstant * 0.08;
       rAvg = rAvg === 0 ? fpsInstant : rAvg * 0.92 + fpsInstant * 0.08;
+      mAvg = mAvg === 0 ? fpsInstant : mAvg * 0.92 + fpsInstant * 0.08;
 
-      aPerf.fpsInstant.textContent = fpsInstant.toFixed(1);
-      aPerf.fpsAvg.textContent = aAvg.toFixed(1);
-      aPerf.frameMs.textContent = dtMs.toFixed(2);
-      aPerf.res.textContent = `${aSize.w}×${aSize.h}`;
-      aPerf.speed.textContent = host.speedApplied.toFixed(2);
-      updateAmpel(aPerf, aAvg, dtMs, authoringParams);
+      authoringPerfEls.fpsInstant.textContent = fpsInstant.toFixed(1);
+      authoringPerfEls.fpsAvg.textContent = aAvg.toFixed(1);
+      authoringPerfEls.frameMs.textContent = dtMs.toFixed(2);
+      authoringPerfEls.res.textContent = `${aSize.w}×${aSize.h}`;
+      authoringPerfEls.speed.textContent = uiState.authoring.speedApplied.toFixed(2);
+      updateAmpel(authoringPerfEls, aAvg, dtMs, authoringParams, uiState.authoring.renderScale);
 
-      rPerf.fpsInstant.textContent = fpsInstant.toFixed(1);
-      rPerf.fpsAvg.textContent = rAvg.toFixed(1);
-      rPerf.frameMs.textContent = dtMs.toFixed(2);
-      rPerf.res.textContent = `${rSize.w}×${rSize.h}`;
-      rPerf.speed.textContent = host.speedApplied.toFixed(2);
-      rPerf.macros.textContent = `${host.macrosApplied[0].toFixed(0)} / ${host.macrosApplied[1].toFixed(0)} / ${host.macrosApplied[2].toFixed(0)}`;
+      runtimePerfEls.fpsInstant.textContent = fpsInstant.toFixed(1);
+      runtimePerfEls.fpsAvg.textContent = rAvg.toFixed(1);
+      runtimePerfEls.frameMs.textContent = dtMs.toFixed(2);
+      runtimePerfEls.res.textContent = `${rSize.w}×${rSize.h}`;
+      runtimePerfEls.speed.textContent = uiState.runtime.speedApplied.toFixed(2);
+      runtimePerfEls.macros.textContent = `${uiState.runtime.macroApplied[0].toFixed(0)} / ${uiState.runtime.macroApplied[1].toFixed(0)} / ${uiState.runtime.macroApplied[2].toFixed(0)}`;
 
-      const speedText = `speed pending ${host.speedPending.toFixed(2)} · applied ${host.speedApplied.toFixed(2)} · target ${speedTargetResolved.toFixed(2)}`;
-      authoringMacroHint.textContent = speedText;
-      runtimeHint.textContent = speedText;
-      resolvedText.textContent = `Resolved: density ${runtimeParams.density.toFixed(2)} · curl ${runtimeParams.curl.toFixed(2)} · edge ${runtimeParams.edge.toFixed(2)} · color ${runtimeParams.color.toFixed(2)}`;
+      minimalPerfEls.fpsInstant.textContent = fpsInstant.toFixed(1);
+      minimalPerfEls.fpsAvg.textContent = mAvg.toFixed(1);
+      minimalPerfEls.frameMs.textContent = dtMs.toFixed(2);
+      minimalPerfEls.res.textContent = `${mSize.w}×${mSize.h}`;
+      minimalPerfEls.speed.textContent = uiState.minimal.speedApplied.toFixed(2);
+      minimalPerfEls.macros.textContent = `${uiState.minimal.macroApplied[0].toFixed(0)} / ${uiState.minimal.macroApplied[1].toFixed(0)} / ${uiState.minimal.macroApplied[2].toFixed(0)}`;
+
+      document.getElementById('runtimeHint').textContent = `speed pending ${uiState.runtime.speedPending.toFixed(2)} · applied ${uiState.runtime.speedApplied.toFixed(2)}`;
+      document.getElementById('minimalHint').textContent = `speed pending ${uiState.minimal.speedPending.toFixed(2)} · applied ${uiState.minimal.speedApplied.toFixed(2)}`;
+      document.getElementById('resolvedText').textContent = `Resolved: density ${runtimeResolved.density.toFixed(2)} · curl ${runtimeResolved.curl.toFixed(2)} · edge ${runtimeResolved.edge.toFixed(2)} · color ${runtimeResolved.redness.toFixed(2)}`;
+      document.getElementById('minimalResolvedText').textContent = `Resolved: density ${minimalResolved.density.toFixed(2)} · curl ${minimalResolved.curl.toFixed(2)} · edge ${minimalResolved.edge.toFixed(2)} · color ${minimalResolved.redness.toFixed(2)}`;
 
       requestAnimationFrame(tick);
     }
-
-    updateControlLabels();
     requestAnimationFrame(tick);
+
     window.addEventListener('resize', layoutCrosses);
+
+    // Minimal export dart
+    const MAIN_MINIMAL_DART = "\nimport 'dart:convert';\nimport 'dart:ui' as ui;\nimport 'package:flutter/material.dart';\nimport 'package:flutter/services.dart';\n\nvoid main() {\n  WidgetsFlutterBinding.ensureInitialized();\n  runApp(const MinimalSmokeApp());\n}\n\nclass MinimalSmokeApp extends StatelessWidget {\n  const MinimalSmokeApp({super.key});\n  @override\n  Widget build(BuildContext context) {\n    return MaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData.dark(useMaterial3: true), home: const MinimalSmokePage());\n  }\n}\n\nclass MinimalSmokePage extends StatefulWidget {\n  const MinimalSmokePage({super.key});\n  @override\n  State<MinimalSmokePage> createState() => _MinimalSmokePageState();\n}\n\nclass _MinimalSmokePageState extends State<MinimalSmokePage> with SingleTickerProviderStateMixin {\n  late final Ticker _ticker;\n  ui.FragmentShader? _shader;\n  MinimalBindings? _bindings;\n  Map<String,double> baseParams = {\"density\": 1.0, \"speed\": 1.0, \"curl\": 1.0, \"turbulence\": 3.0, \"edge\": 1.0, \"softness\": 1.05, \"spread\": 1.06, \"redness\": 0.0, \"curlSize\": 1.08, \"curlCount\": 2.0, \"curlDynamics\": 1.0, \"edgeUpper\": 1.0, \"edgeLower\": 1.0, \"edgeSharpness\": 1.0, \"edgeGradient\": 0.5, \"edgeBreakCount\": 2.0, \"edgeBreakStrength\": 0.5, \"edgeBreakSoftness\": 1.0}.map((k,v)=>MapEntry(k,(v as num).toDouble()));\n  List<Offset> offsets = const [Offset.zero, Offset.zero, Offset.zero, Offset.zero];\n  final List<double> macroPending = [0,0,0];\n  final List<double> macroTarget = [0,0,0];\n  final List<double> macroApplied = [0,0,0];\n  List<Map<String,double>> macroBindings = [{\"density\": 0.55, \"spread\": 0.35, \"softness\": 0.25, \"edgeBreakCount\": 0.18}, {\"curl\": 0.5, \"curlSize\": 0.3, \"curlCount\": 0.45, \"curlDynamics\": 0.35, \"turbulence\": 0.45, \"speed\": 0.2}, {\"edge\": 0.5, \"edgeSharpness\": 0.35, \"edgeUpper\": 0.2, \"edgeLower\": 0.2, \"edgeBreakStrength\": 0.25, \"redness\": 0.75}].map((e)=>Map<String,double>.from(e)).toList();\n  List<String> macroNames = [\"Macro 1\", \"Macro 2\", \"Macro 3\"].cast<String>();\n  double speedPending = 1.0;\n  double speedBaseCommitted = 1.0;\n  double speedApplied = 1.0;\n  double shaderTime = 0.0;\n  Duration last = Duration.zero;\n\n  @override\n  void initState() {\n    super.initState();\n    _ticker = createTicker(_tick)..start();\n    _load();\n  }\n\n  Future<void> _load() async {\n    final program = await ui.FragmentProgram.fromAsset('shaders/steam_target_safe.frag');\n    final shader = program.fragmentShader();\n    try {\n      final raw = await rootBundle.loadString('assets/smoke_config_minimal.json');\n      final json = jsonDecode(raw) as Map<String, dynamic>;\n      final bp = (json['baseParams'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toDouble()));\n      final offs = (json['offsets'] as List).map((e) => Offset((e[0] as num).toDouble(), (e[1] as num).toDouble())).toList();\n      final macros = (json['macros'] as List).cast<Map<String, dynamic>>();\n      if (mounted) {\n        setState(() {\n          _shader = shader;\n          _bindings = MinimalBindings(shader);\n          baseParams = bp;\n          offsets = offs.length == 4 ? offs : offsets;\n          macroBindings = macros.map((m) => (m['bindings'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toDouble()))).toList();\n          macroNames = macros.map((m) => (m['name'] as String?) ?? 'Macro').toList();\n          speedPending = bp['speed'] ?? 1.0;\n          speedBaseCommitted = speedPending;\n          speedApplied = speedPending;\n        });\n      }\n    } catch (_) {\n      if (mounted) {\n        setState(() {\n          _shader = shader;\n          _bindings = MinimalBindings(shader);\n        });\n      }\n    }\n  }\n\n  double resolveValue(String name, [double? baseOverride]) {\n    final spec = ParamSpec.byName[name]!;\n    double value = baseOverride ?? (baseParams[name] ?? spec.min);\n    for (int i=0;i<3;i++) {\n      final w = macroBindings[i][name];\n      if (w == null) continue;\n      final norm = (macroApplied[i] / 100.0).clamp(0.0, 1.0);\n      value += norm * w * (spec.max - spec.min);\n    }\n    return value.clamp(spec.min, spec.max);\n  }\n\n  void _tick(Duration elapsed) {\n    if (_shader == null) return;\n    final dt = (last == Duration.zero) ? 0.016 : (elapsed - last).inMicroseconds / 1e6;\n    last = elapsed;\n    final macroEase = (dt * 7.0).clamp(0.0, 1.0);\n    for (int i=0;i<3;i++) {\n      macroApplied[i] += (macroTarget[i] - macroApplied[i]) * macroEase;\n    }\n    final speedTarget = resolveValue('speed', speedBaseCommitted);\n    final speedEase = (dt * 6.0).clamp(0.0, 1.0);\n    speedApplied += (speedTarget - speedApplied) * speedEase;\n    shaderTime += dt * speedApplied;\n    if (mounted) setState((){});\n  }\n\n  @override\n  void dispose() {\n    _ticker.dispose();\n    super.dispose();\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    final shader = _shader;\n    final bindings = _bindings;\n    return Scaffold(\n      backgroundColor: const Color(0xFF000000),\n      body: shader == null || bindings == null\n        ? const Center(child: CircularProgressIndicator())\n        : LayoutBuilder(builder: (context, constraints) {\n            const aspect = 1024 / 600;\n            double width = constraints.maxWidth;\n            double height = width / aspect;\n            if (height > constraints.maxHeight) {\n              height = constraints.maxHeight;\n              width = height * aspect;\n            }\n            final params = ResolvedParams(\n              density: resolveValue('density'),\n              curl: resolveValue('curl'),\n              turbulence: resolveValue('turbulence'),\n              edge: resolveValue('edge'),\n              softness: resolveValue('softness'),\n              spread: resolveValue('spread'),\n              redness: resolveValue('redness'),\n              curlSize: resolveValue('curlSize'),\n              curlCount: resolveValue('curlCount'),\n              curlDynamics: resolveValue('curlDynamics'),\n              edgeUpper: resolveValue('edgeUpper'),\n              edgeLower: resolveValue('edgeLower'),\n              edgeSharpness: resolveValue('edgeSharpness'),\n              edgeGradient: resolveValue('edgeGradient'),\n              edgeBreakCount: resolveValue('edgeBreakCount'),\n              edgeBreakStrength: resolveValue('edgeBreakStrength'),\n              edgeBreakSoftness: resolveValue('edgeBreakSoftness'),\n              offsets: offsets,\n            );\n            return Stack(children: [\n              Center(child: SizedBox(width: width, height: height, child: CustomPaint(\n                painter: MinimalPainter(shader: shader, bindings: bindings, time: shaderTime, params: params),\n              ))),\n              Positioned(\n                left: 20, top: 20,\n                child: DecoratedBox(\n                  decoration: BoxDecoration(\n                    color: const Color(0xFF161C24).withOpacity(0.72),\n                    borderRadius: BorderRadius.circular(20),\n                    border: Border.all(color: Colors.white.withOpacity(0.08)),\n                  ),\n                  child: Padding(\n                    padding: const EdgeInsets.all(14),\n                    child: SizedBox(\n                      width: 320,\n                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [\n                        const Text('Minimal target-safe runtime', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),\n                        const SizedBox(height: 12),\n                        for (int i=0;i<3;i++) _SliderRow(\n                          label: macroNames[i],\n                          value: macroPending[i].toStringAsFixed(0),\n                          child: Slider(\n                            value: macroPending[i], min: 0, max: 100,\n                            onChanged: (v) => setState(() { macroPending[i]=v; macroTarget[i]=v; }),\n                          ),\n                        ),\n                        _SliderRow(\n                          label: 'speed',\n                          value: speedPending.toStringAsFixed(2),\n                          child: Slider(\n                            value: speedPending, min: 0.1, max: 4.8,\n                            onChanged: (v) => setState(() => speedPending = v),\n                            onChangeEnd: (v) => setState(() => speedBaseCommitted = v),\n                          ),\n                        ),\n                      ]),\n                    ),\n                  ),\n                ),\n              )\n            ]);\n          }),\n    );\n  }\n}\n\nclass MinimalPainter extends CustomPainter {\n  const MinimalPainter({required this.shader, required this.bindings, required this.time, required this.params});\n  final ui.FragmentShader shader;\n  final MinimalBindings bindings;\n  final double time;\n  final ResolvedParams params;\n  @override\n  void paint(Canvas canvas, Size size) {\n    bindings.set(size, time, params);\n    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);\n  }\n  @override\n  bool shouldRepaint(covariant MinimalPainter oldDelegate) => true;\n}\n\nclass MinimalBindings {\n  MinimalBindings(this.shader)\n      : uResolution = shader.getUniformVec2('uResolution'),\n        uTime = shader.getUniformFloat('uTime'),\n        uDensity = shader.getUniformFloat('uDensity'),\n        uCurl = shader.getUniformFloat('uCurl'),\n        uTurbulence = shader.getUniformFloat('uTurbulence'),\n        uEdge = shader.getUniformFloat('uEdge'),\n        uSoftness = shader.getUniformFloat('uSoftness'),\n        uSpread = shader.getUniformFloat('uSpread'),\n        uRedness = shader.getUniformFloat('uRedness'),\n        uCurlSize = shader.getUniformFloat('uCurlSize'),\n        uCurlCount = shader.getUniformFloat('uCurlCount'),\n        uCurlDynamics = shader.getUniformFloat('uCurlDynamics'),\n        uEdgeUpper = shader.getUniformFloat('uEdgeUpper'),\n        uEdgeLower = shader.getUniformFloat('uEdgeLower'),\n        uEdgeSharpness = shader.getUniformFloat('uEdgeSharpness'),\n        uEdgeGradient = shader.getUniformFloat('uEdgeGradient'),\n        uEdgeBreakCount = shader.getUniformFloat('uEdgeBreakCount'),\n        uEdgeBreakStrength = shader.getUniformFloat('uEdgeBreakStrength'),\n        uEdgeBreakSoftness = shader.getUniformFloat('uEdgeBreakSoftness'),\n        uOff1 = shader.getUniformVec2('uOff1'),\n        uOff2 = shader.getUniformVec2('uOff2'),\n        uOff3 = shader.getUniformVec2('uOff3'),\n        uOff4 = shader.getUniformVec2('uOff4');\n\n  final ui.FragmentShader shader;\n  final ui.UniformVec2Slot uResolution;\n  final ui.UniformFloatSlot uTime, uDensity, uCurl, uTurbulence, uEdge, uSoftness, uSpread, uRedness,\n      uCurlSize, uCurlCount, uCurlDynamics, uEdgeUpper, uEdgeLower, uEdgeSharpness, uEdgeGradient,\n      uEdgeBreakCount, uEdgeBreakStrength, uEdgeBreakSoftness;\n  final ui.UniformVec2Slot uOff1, uOff2, uOff3, uOff4;\n\n  void set(Size size, double time, ResolvedParams p) {\n    uResolution.set(size.width, size.height);\n    uTime.set(time);\n    uDensity.set(p.density);\n    uCurl.set(p.curl);\n    uTurbulence.set(p.turbulence);\n    uEdge.set(p.edge);\n    uSoftness.set(p.softness);\n    uSpread.set(p.spread);\n    uRedness.set(p.redness);\n    uCurlSize.set(p.curlSize);\n    uCurlCount.set(p.curlCount);\n    uCurlDynamics.set(p.curlDynamics);\n    uEdgeUpper.set(p.edgeUpper);\n    uEdgeLower.set(p.edgeLower);\n    uEdgeSharpness.set(p.edgeSharpness);\n    uEdgeGradient.set(p.edgeGradient);\n    uEdgeBreakCount.set(p.edgeBreakCount);\n    uEdgeBreakStrength.set(p.edgeBreakStrength);\n    uEdgeBreakSoftness.set(p.edgeBreakSoftness);\n    uOff1.set(p.offsets[0].dx, p.offsets[0].dy);\n    uOff2.set(p.offsets[1].dx, p.offsets[1].dy);\n    uOff3.set(p.offsets[2].dx, p.offsets[2].dy);\n    uOff4.set(p.offsets[3].dx, p.offsets[3].dy);\n  }\n}\n\nclass ResolvedParams {\n  const ResolvedParams({\n    required this.density, required this.curl, required this.turbulence, required this.edge, required this.softness,\n    required this.spread, required this.redness, required this.curlSize, required this.curlCount, required this.curlDynamics,\n    required this.edgeUpper, required this.edgeLower, required this.edgeSharpness, required this.edgeGradient,\n    required this.edgeBreakCount, required this.edgeBreakStrength, required this.edgeBreakSoftness, required this.offsets,\n  });\n  final double density, curl, turbulence, edge, softness, spread, redness, curlSize, curlCount, curlDynamics,\n      edgeUpper, edgeLower, edgeSharpness, edgeGradient, edgeBreakCount, edgeBreakStrength, edgeBreakSoftness;\n  final List<Offset> offsets;\n}\n\nclass ParamSpec {\n  const ParamSpec(this.min, this.max);\n  final double min, max;\n  static const byName = {\n    'density': ParamSpec(0.3, 1.8),\n    'speed': ParamSpec(0.1, 4.8),\n    'curl': ParamSpec(0.0, 2.0),\n    'turbulence': ParamSpec(0.0, 6.6),\n    'edge': ParamSpec(0.2, 2.4),\n    'softness': ParamSpec(0.4, 2.2),\n    'spread': ParamSpec(0.35, 2.2),\n    'redness': ParamSpec(0.0, 1.0),\n    'curlSize': ParamSpec(0.5, 1.8),\n    'curlCount': ParamSpec(0.0, 6.0),\n    'curlDynamics': ParamSpec(0.0, 2.0),\n    'edgeUpper': ParamSpec(0.0, 2.4),\n    'edgeLower': ParamSpec(0.0, 2.4),\n    'edgeSharpness': ParamSpec(0.4, 2.8),\n    'edgeGradient': ParamSpec(0.0, 1.0),\n    'edgeBreakCount': ParamSpec(0.0, 8.0),\n    'edgeBreakStrength': ParamSpec(0.0, 1.4),\n    'edgeBreakSoftness': ParamSpec(0.2, 3.0),\n  };\n}\n\nclass _SliderRow extends StatelessWidget {\n  const _SliderRow({required this.label, required this.value, required this.child});\n  final String label, value;\n  final Widget child;\n  @override\n  Widget build(BuildContext context) {\n    return Padding(\n      padding: const EdgeInsets.only(bottom: 10),\n      child: Column(children: [\n        Row(children: [\n          Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.86)))),\n          Text(value, style: const TextStyle(fontSize: 13)),\n        ]),\n        child,\n      ]),\n    );\n  }\n}\n";
   </script>
 </body>
 </html>
