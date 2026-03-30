@@ -29,13 +29,19 @@
     .stage { position: relative; width: min(1024px, calc(100vw - 790px)); aspect-ratio: 1024 / 600; }
     canvas {
       width: 100%; height: 100%; display: block; border-radius: 18px; background: #000000;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45); position: relative; z-index: 1;
     }
     .overlay { position: absolute; inset: 0; pointer-events: none; }
     .image-overlay {
       position: absolute; inset: 0; width: 100%; height: 100%; display: none;
-      object-fit: contain; pointer-events: none; border-radius: 18px;
+      object-fit: contain; pointer-events: none; border-radius: 18px; z-index: 3;
     }
+    .html-overlay {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: none;
+      border: 0; margin: 0; padding: 0; background: transparent; border-radius: 18px;
+      z-index: 3; pointer-events: auto; overflow: hidden;
+    }
+    .stage { overflow: hidden; }
     .perf-col { display: grid; gap: 12px; align-content: start; }
     .perf {
       padding: 10px 12px; border-radius: 14px;
@@ -87,6 +93,10 @@
       background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); font-size: 11px;
     }
     .chip { cursor: grab; }
+.risky-control { border: 1px solid rgba(255, 100, 100, 0.24); border-radius: 12px; padding: 8px 10px 6px; background: rgba(110, 24, 24, 0.10); }
+.risky-control .label span:first-child { color: #ffb0b0; }
+.risky-chip { background: rgba(110, 24, 24, 0.18); border-color: rgba(255, 100, 100, 0.28); color: #ffd0d0; }
+.risky-binding { background: rgba(110, 24, 24, 0.16); border-color: rgba(255, 100, 100, 0.26); }
     .macro { padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 12px; }
     .macro-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
     .macro-drop {
@@ -207,10 +217,12 @@
           <div id="runtimeSpeedControl"></div>
           <div class="actions">
             <button class="action" id="uploadOverlayBtn">PNG Overlay laden</button>
+            <button class="action" id="uploadHtmlOverlayBtn">HTML Overlay laden</button>
             <button class="action" id="clearOverlayBtn">Overlay entfernen</button>
           </div>
           <input id="overlayInput" type="file" accept="image/png" style="display:none;">
-          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz.</div>
+          <input id="overlayHtmlInput" type="file" accept="text/html,.html" style="display:none;">
+          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz oder eine touchbare transparente HTML-Datei.</div>
           <div class="tiny" id="resolvedText" style="margin-top:8px;">Resolved: waiting…</div>
           <div id="runtimeLog" class="log">Compile log: waiting…</div>
         </div>
@@ -227,10 +239,12 @@
           <div id="minimalSpeedControl"></div>
           <div class="actions">
             <button class="action" id="uploadMinimalOverlayBtn">PNG Overlay laden</button>
+            <button class="action" id="uploadMinimalHtmlOverlayBtn">HTML Overlay laden</button>
             <button class="action" id="clearMinimalOverlayBtn">Overlay entfernen</button>
           </div>
           <input id="minimalOverlayInput" type="file" accept="image/png" style="display:none;">
-          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz.</div>
+          <input id="minimalHtmlOverlayInput" type="file" accept="text/html,.html" style="display:none;">
+          <div class="tiny">Empfohlen: 1024×600 PNG mit Transparenz oder eine touchbare transparente HTML-Datei.</div>
           <h2>Minimale Farbbasis (baked, ABI-safe)</h2>
           <div class="meta">Die RGB-Farbe wird nur in die festen Rot-Konstanten der Minimal-<code>.frag</code> eingebacken. Es kommen keine neuen Uniforms dazu. <strong>redness</strong> bleibt nur der Intensitätsregler.</div>
           <div id="minimalColorControls"></div>
@@ -249,10 +263,12 @@
         <div class="stage hidden" id="runtimeStage">
           <canvas id="runtimeCanvas"></canvas>
           <img id="runtimeOverlayImage" class="image-overlay" alt="">
+          <iframe id="runtimeHtmlOverlay" class="html-overlay" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
         </div>
         <div class="stage hidden" id="minimalStage">
           <canvas id="minimalCanvas"></canvas>
           <img id="minimalOverlayImage" class="image-overlay" alt="">
+          <iframe id="minimalHtmlOverlay" class="html-overlay" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
         </div>
       </div>
 
@@ -322,6 +338,9 @@
     let state = structuredClone(DEFAULT_CONFIG);
     let uiState = {
       authoring: {
+        macroPending: [0,0,0],
+        macroTarget: [0,0,0],
+        macroApplied: [0,0,0],
         speedPending: state.baseParams.speed,
         speedTarget: state.baseParams.speed,
         speedApplied: state.baseParams.speed,
@@ -340,6 +359,7 @@
         curlDynamicsApplied: state.baseParams.curlDynamics,
         renderScale: 0.50,
         overlayUrl: null,
+        overlayHtml: '',
       },
       minimal: {
         macroPending: [0,0,0],
@@ -350,6 +370,7 @@
         speedApplied: state.baseParams.speed,
         renderScale: 0.50,
         overlayUrl: null,
+        overlayHtml: '',
         tintRgb: [250,69,46],
       },
     };
@@ -479,7 +500,8 @@
         ui: {
           authoring: {
             renderScale: uiState.authoring.renderScale,
-            speedPending: uiState.authoring.speedPending
+            speedPending: uiState.authoring.speedPending,
+            macroPending: uiState.authoring.macroPending
           },
           runtime: {
             renderScale: uiState.runtime.renderScale,
@@ -505,6 +527,9 @@
           uiState.authoring.renderScale = clamp(Number(save.ui.authoring.renderScale ?? uiState.authoring.renderScale), 0.30, 1.00);
           uiState.authoring.speedPending = clamp(Number(save.ui.authoring.speedPending ?? state.baseParams.speed), PARAM_SPECS.speed.min, PARAM_SPECS.speed.max);
           uiState.authoring.speedTarget = uiState.authoring.speedPending;
+          const am = save.ui.authoring.macroPending || [0,0,0];
+          uiState.authoring.macroPending = am.map(v => clamp(Number(v), 0, 100));
+          uiState.authoring.macroTarget = [...uiState.authoring.macroPending];
         }
         if (save.ui.runtime) {
           uiState.runtime.renderScale = clamp(Number(save.ui.runtime.renderScale ?? uiState.runtime.renderScale), 0.30, 1.00);
@@ -592,12 +617,12 @@
         host.appendChild(wrap);
       }
     }
-    buildMacroSliderGroup('authoringMacroControls', uiState.runtime); // authoring uses runtime macro state
+    buildMacroSliderGroup('authoringMacroControls', uiState.authoring);
     buildMacroSliderGroup('runtimeMacroControls', uiState.runtime);
     buildMacroSliderGroup('minimalMacroControls', uiState.minimal);
 
     function syncMacroLabels() {
-      const groups = [uiState.runtime, uiState.runtime, uiState.minimal];
+      const groups = [uiState.authoring, uiState.runtime, uiState.minimal];
       groups.forEach((group, idx) => {
         if (!group.macroRefs) return;
         group.macroRefs.forEach((ref, i) => {
@@ -651,7 +676,7 @@
         ref.slider.parentElement.querySelector('.label span').textContent = displayName(name);
       });
       document.getElementById('authoringMacroHint').textContent =
-        `runtime macros use the same host mapping as Flutter · speed pending ${uiState.authoring.speedPending.toFixed(2)}`;
+        `authoring preview uses its own macro state · speed pending ${uiState.authoring.speedPending.toFixed(2)}`;
     }
 
     // runtime/minimal speed controls
@@ -717,6 +742,7 @@
       const g = document.getElementById('minG');
       const b = document.getElementById('minB');
       const hex = document.getElementById('minColorHex');
+      let tintTimer = null;
       function apply(rgb) {
         uiState.minimal.tintRgb = rgb.map(v => clamp(Number(v), 0, 255));
         const hx = '#' + uiState.minimal.tintRgb.map(v=>Number(v).toString(16).padStart(2,'0')).join('');
@@ -725,7 +751,8 @@
         g.value = uiState.minimal.tintRgb[1];
         b.value = uiState.minimal.tintRgb[2];
         hex.textContent = hx;
-        rebuildMinimalRenderer();
+        if (tintTimer) clearTimeout(tintTimer);
+        tintTimer = setTimeout(() => rebuildMinimalRenderer(), 60);
         markDirty();
       }
       picker.addEventListener('input', () => {
@@ -747,7 +774,8 @@
       Object.keys(PARAM_SPECS).forEach(name => {
         if (name === 'renderScale') return;
         const chip = document.createElement('div');
-        chip.className = 'chip';
+        const riskyParams = new Set(['edgeUpperThin','edgeLowerThin']);
+        chip.className = 'chip' + (riskyParams.has(name) ? ' risky-chip' : '');
         chip.draggable = true;
         chip.textContent = displayName(name);
         chip.dataset.param = name;
@@ -781,7 +809,8 @@
         } else {
           Object.entries(binds).forEach(([name, influence]) => {
             const b = document.createElement('div');
-            b.className = 'binding';
+            const riskyParams = new Set(['edgeUpperThin','edgeLowerThin']);
+            b.className = 'binding' + (riskyParams.has(name) ? ' risky-binding' : '');
             b.innerHTML = `
               <span>${displayName(name)}</span>
               <input type="range" min="-1" max="1" step="0.01" value="${influence}">
@@ -936,42 +965,106 @@
     document.getElementById('downloadMinimalMain').addEventListener('click', ()=>downloadText('main_minimal.dart', MAIN_MINIMAL_DART));
 
     // overlays
-    function bindOverlay(uploadBtnId, inputId, clearBtnId, imgId, stateObj) {
-      const input = document.getElementById(inputId);
+    function bindAssetOverlay(pngBtnId, pngInputId, htmlBtnId, htmlInputId, clearBtnId, imgId, iframeId, stateObj) {
+      const pngInput = document.getElementById(pngInputId);
+      const htmlInput = document.getElementById(htmlInputId);
       const img = document.getElementById(imgId);
-      document.getElementById(uploadBtnId).addEventListener('click', ()=>input.click());
-      document.getElementById(clearBtnId).addEventListener('click', ()=>{
+      const frame = document.getElementById(iframeId);
+
+      function clearAll() {
         if (stateObj.overlayUrl) URL.revokeObjectURL(stateObj.overlayUrl);
         stateObj.overlayUrl = null;
+        stateObj.overlayHtml = '';
         img.src = '';
         img.style.display = 'none';
-      });
-      input.addEventListener('change', e=>{
+        frame.srcdoc = '';
+        frame.style.display = 'none';
+      }
+
+      document.getElementById(pngBtnId).addEventListener('click', ()=>pngInput.click());
+      document.getElementById(htmlBtnId).addEventListener('click', ()=>htmlInput.click());
+      document.getElementById(clearBtnId).addEventListener('click', ()=>{ clearAll(); markDirty(); });
+
+      pngInput.addEventListener('change', e=>{
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         if (stateObj.overlayUrl) URL.revokeObjectURL(stateObj.overlayUrl);
         stateObj.overlayUrl = URL.createObjectURL(file);
+        stateObj.overlayHtml = '';
+        frame.srcdoc = '';
+        frame.style.display = 'none';
         img.src = stateObj.overlayUrl;
         img.style.display = 'block';
         e.target.value = '';
+        markDirty();
       });
-    }
-    bindOverlay('uploadOverlayBtn','overlayInput','clearOverlayBtn','runtimeOverlayImage', uiState.runtime);
-    bindOverlay('uploadMinimalOverlayBtn','minimalOverlayInput','clearMinimalOverlayBtn','minimalOverlayImage', uiState.minimal);
 
-    function resolveRuntime(baseParams, offsets, macros, appliedSpeed) {
-      const out = Object.assign({}, baseParams);
-      for (let i=0;i<3;i++) {
-        const macroNorm = clamp(macros[i] / 100.0, 0, 1);
-        const bindings = state.macros[i].bindings || {};
-        for (const [name, influence] of Object.entries(bindings)) {
-          const spec = PARAM_SPECS[name];
-          if (!spec) continue;
-          const base = baseParams[name];
-          out[name] = clamp(base + macroNorm * influence * (spec.max - spec.min), spec.min, spec.max);
-        }
+      htmlInput.addEventListener('change', async e=>{
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const html = await file.text();
+        if (stateObj.overlayUrl) URL.revokeObjectURL(stateObj.overlayUrl);
+        stateObj.overlayUrl = null;
+        img.src = '';
+        img.style.display = 'none';
+        stateObj.overlayHtml = html;
+        frame.srcdoc = html;
+        frame.style.display = 'block';
+        e.target.value = '';
+        markDirty();
+      });
+
+      if (stateObj.overlayHtml) {
+        frame.srcdoc = stateObj.overlayHtml;
+        frame.style.display = 'block';
       }
-      out.speed = appliedSpeed;
+    }
+    bindAssetOverlay('uploadOverlayBtn','overlayInput','uploadHtmlOverlayBtn','overlayHtmlInput','clearOverlayBtn','runtimeOverlayImage','runtimeHtmlOverlay', uiState.runtime);
+    bindAssetOverlay('uploadMinimalOverlayBtn','minimalOverlayInput','uploadMinimalHtmlOverlayBtn','minimalHtmlOverlayInput','clearMinimalOverlayBtn','minimalOverlayImage','minimalHtmlOverlay', uiState.minimal);
+
+    // overlay -> macro 2 bridge (one-way)
+    const runtimeHtmlOverlayEl = document.getElementById('runtimeHtmlOverlay');
+    const minimalHtmlOverlayEl = document.getElementById('minimalHtmlOverlay');
+
+    function setMacro2FromOverlay(targetState, value) {
+      const v = clamp(Number(value), 0, 100);
+      targetState.macroPending[1] = v;
+      targetState.macroTarget[1] = v;
+      syncMacroLabels();
+      markDirty();
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'shader-macro-update' || Number(data.macro) !== 2 || typeof data.value !== 'number') return;
+
+      if (runtimeHtmlOverlayEl && event.source === runtimeHtmlOverlayEl.contentWindow) {
+        setMacro2FromOverlay(uiState.runtime, data.value);
+      } else if (minimalHtmlOverlayEl && event.source === minimalHtmlOverlayEl.contentWindow) {
+        setMacro2FromOverlay(uiState.minimal, data.value);
+      }
+    });
+
+
+    function resolveValueFrom(baseParams, macros, name, baseOverride = null, macroDefs = state.macros) {
+      const spec = PARAM_SPECS[name];
+      if (!spec) return baseOverride ?? baseParams[name];
+      let value = baseOverride !== null ? baseOverride : baseParams[name];
+      for (let i=0;i<3;i++) {
+        const macroNorm = clamp((macros[i] || 0) / 100.0, 0, 1);
+        const bindings = (macroDefs[i] && macroDefs[i].bindings) ? macroDefs[i].bindings : {};
+        const influence = bindings[name];
+        if (influence === undefined) continue;
+        value = clamp(value + macroNorm * influence * (spec.max - spec.min), spec.min, spec.max);
+      }
+      return value;
+    }
+
+    function resolveRuntime(baseParams, offsets, macros, macroDefs = state.macros) {
+      const out = {};
+      Object.keys(baseParams).forEach(name => {
+        out[name] = resolveValueFrom(baseParams, macros, name, null, macroDefs);
+      });
       out.offsets = offsets;
       return out;
     }
@@ -1086,35 +1179,41 @@
       last = now;
 
       // authoring smoothing
-      uiState.authoring.speedApplied += (uiState.authoring.speedTarget - uiState.authoring.speedApplied) * Math.min(1.0, dt * 6.0);
-      uiState.authoring.curlCountApplied += (state.baseParams.curlCount - uiState.authoring.curlCountApplied) * Math.min(1.0, dt * 7.0);
-      uiState.authoring.curlDynamicsApplied += (state.baseParams.curlDynamics - uiState.authoring.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
+      const authoringSpeedTarget = resolveValueFrom(state.baseParams, uiState.authoring.macroApplied, 'speed', uiState.authoring.speedPending);
+      uiState.authoring.speedApplied += (authoringSpeedTarget - uiState.authoring.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i=0;i<3;i++) {
+        uiState.authoring.macroApplied[i] += (uiState.authoring.macroTarget[i] - uiState.authoring.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      }
+      uiState.authoring.curlCountApplied += (resolveValueFrom(state.baseParams, uiState.authoring.macroApplied, 'curlCount') - uiState.authoring.curlCountApplied) * Math.min(1.0, dt * 7.0);
+      uiState.authoring.curlDynamicsApplied += (resolveValueFrom(state.baseParams, uiState.authoring.macroApplied, 'curlDynamics') - uiState.authoring.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
 
       // runtime smoothing
-      uiState.runtime.speedApplied += (uiState.runtime.speedTarget - uiState.runtime.speedApplied) * Math.min(1.0, dt * 6.0);
+      const runtimeSpeedTarget = resolveValueFrom(state.baseParams, uiState.runtime.macroApplied, 'speed', uiState.runtime.speedPending);
+      uiState.runtime.speedApplied += (runtimeSpeedTarget - uiState.runtime.speedApplied) * Math.min(1.0, dt * 6.0);
       for (let i=0;i<3;i++) uiState.runtime.macroApplied[i] += (uiState.runtime.macroTarget[i] - uiState.runtime.macroApplied[i]) * Math.min(1.0, dt * 7.0);
-      const runtimeResolved = resolveRuntime(state.baseParams, state.offsets, uiState.runtime.macroApplied, uiState.runtime.speedApplied);
-      uiState.runtime.curlCountApplied += (runtimeResolved.curlCount - uiState.runtime.curlCountApplied) * Math.min(1.0, dt * 7.0);
-      uiState.runtime.curlDynamicsApplied += (runtimeResolved.curlDynamics - uiState.runtime.curlDynamicsApplied) * Math.min(1.0, dt * 7.0);
-      runtimeResolved.curlCount = uiState.runtime.curlCountApplied;
-      runtimeResolved.curlDynamics = uiState.runtime.curlDynamicsApplied;
 
       // minimal smoothing
-      uiState.minimal.speedApplied += (uiState.minimal.speedTarget - uiState.minimal.speedApplied) * Math.min(1.0, dt * 6.0);
-      for (let i=0;i<3;i++) uiState.minimal.macroApplied[i] += (uiState.minimal.macroTarget[i] - uiState.minimal.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+      const minCfg = currentMinimalConfig();
       const minimalBase = {};
-      Object.keys(DEFAULT_MIN_CONFIG.baseParams).forEach(k => minimalBase[k] = state.baseParams[k]);
-      const minimalResolved = resolveRuntime(minimalBase, state.offsets, uiState.minimal.macroApplied, uiState.minimal.speedApplied);
+      Object.keys(minCfg.baseParams).forEach(k => minimalBase[k] = state.baseParams[k]);
+      const minimalSpeedTarget = resolveValueFrom(minimalBase, uiState.minimal.macroApplied, 'speed', uiState.minimal.speedPending, minCfg.macros);
+      uiState.minimal.speedApplied += (minimalSpeedTarget - uiState.minimal.speedApplied) * Math.min(1.0, dt * 6.0);
+      for (let i=0;i<3;i++) uiState.minimal.macroApplied[i] += (uiState.minimal.macroTarget[i] - uiState.minimal.macroApplied[i]) * Math.min(1.0, dt * 7.0);
+
+      const authoringResolved = resolveRuntime(state.baseParams, state.offsets, uiState.authoring.macroApplied);
+      authoringResolved.curlCount = uiState.authoring.curlCountApplied;
+      authoringResolved.curlDynamics = uiState.authoring.curlDynamicsApplied;
+      const runtimeResolved = resolveRuntime(state.baseParams, state.offsets, uiState.runtime.macroApplied);
+      const minimalResolved = resolveRuntime(minimalBase, state.offsets, uiState.minimal.macroApplied, minCfg.macros);
 
       aTime += dt * uiState.authoring.speedApplied;
       rTime += dt * uiState.runtime.speedApplied;
       mTime += dt * uiState.minimal.speedApplied;
 
-      const authoringParams = Object.assign({}, state.baseParams, {
+      const authoringParams = Object.assign({}, authoringResolved, {
         speed: uiState.authoring.speedApplied,
         curlCount: uiState.authoring.curlCountApplied,
         curlDynamics: uiState.authoring.curlDynamicsApplied,
-        offsets: state.offsets
       });
 
       const aSize = applyUniforms(authoringRenderer, authoringParams, aTime, uiState.authoring.renderScale, false);
@@ -1147,8 +1246,10 @@
       minimalPerfEls.speed.textContent = uiState.minimal.speedApplied.toFixed(2);
       minimalPerfEls.macros.textContent = `${uiState.minimal.macroApplied[0].toFixed(0)} / ${uiState.minimal.macroApplied[1].toFixed(0)} / ${uiState.minimal.macroApplied[2].toFixed(0)}`;
 
-      document.getElementById('runtimeHint').textContent = `speed pending ${uiState.runtime.speedPending.toFixed(2)} · applied ${uiState.runtime.speedApplied.toFixed(2)}`;
-      document.getElementById('minimalHint').textContent = `speed pending ${uiState.minimal.speedPending.toFixed(2)} · applied ${uiState.minimal.speedApplied.toFixed(2)}`;
+      document.getElementById('authoringMacroHint').textContent = `authoring macros active · speed pending ${uiState.authoring.speedPending.toFixed(2)} · applied ${uiState.authoring.speedApplied.toFixed(2)} · target ${authoringSpeedTarget.toFixed(2)}`;
+      document.getElementById('runtimeHint').textContent = `speed pending ${uiState.runtime.speedPending.toFixed(2)} · applied ${uiState.runtime.speedApplied.toFixed(2)} · target ${runtimeSpeedTarget.toFixed(2)}`;
+      document.getElementById('minimalHint').textContent = `speed pending ${uiState.minimal.speedPending.toFixed(2)} · applied ${uiState.minimal.speedApplied.toFixed(2)} · target ${minimalSpeedTarget.toFixed(2)}`;
+
       document.getElementById('resolvedText').textContent = `Resolved: density ${runtimeResolved.density.toFixed(2)} · curl ${runtimeResolved.curl.toFixed(2)} · edge ${runtimeResolved.edge.toFixed(2)} · color ${runtimeResolved.redness.toFixed(2)}`;
       document.getElementById('minimalResolvedText').textContent = `Resolved: density ${minimalResolved.density.toFixed(2)} · curl ${minimalResolved.curl.toFixed(2)} · edge ${minimalResolved.edge.toFixed(2)} · color ${minimalResolved.redness.toFixed(2)}`;
 
